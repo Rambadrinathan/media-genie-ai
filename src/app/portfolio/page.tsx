@@ -38,7 +38,7 @@ export default function PortfolioPage() {
     const { data } = await supabase
       .from('images')
       .select('*')
-      .eq('status', 'approved')
+      .in('status', ['approved', 'pending_approval'])
       .order('quality_score', { ascending: false })
       .limit(200)
     setApprovedImages(data || [])
@@ -60,13 +60,22 @@ export default function PortfolioPage() {
       })
 
       if (res.ok) {
+        const data = await res.json()
         setShowBuilder(false)
         setPrompt('')
         setSelectedImages(new Set())
         fetchPortfolios()
+        // Navigate to the gallery page
+        if (data.id) {
+          window.open(`/gallery/${data.id}`, '_blank')
+        }
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Failed to generate portfolio')
       }
     } catch (err) {
       console.error('Generate error:', err)
+      alert('Failed to generate portfolio. Please try again.')
     } finally {
       setGenerating(false)
     }

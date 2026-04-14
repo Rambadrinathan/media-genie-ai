@@ -12,11 +12,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
   }
 
-  // Fetch approved images
+  // Fetch images (approved first, then pending if needed)
   let query = supabase
     .from('images')
     .select('id, filename, tags, quality_score, ai_caption, scene, classified_folder, thumbnail_url, cdn_url')
-    .eq('status', 'approved')
+    .in('status', ['approved', 'pending_approval'])
     .order('quality_score', { ascending: false })
 
   if (selectedImageIds && selectedImageIds.length > 0) {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
   const { data: images, error } = await query.limit(100)
   if (error || !images || images.length === 0) {
-    return NextResponse.json({ error: 'No approved images found' }, { status: 404 })
+    return NextResponse.json({ error: 'No images found. Process some images first.' }, { status: 404 })
   }
 
   // Use Claude to select and arrange images for the portfolio
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   )).join('\n')
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6-20250514',
+    model: 'claude-sonnet-4-20250514',
     max_tokens: 2048,
     messages: [
       {

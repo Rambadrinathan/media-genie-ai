@@ -101,14 +101,13 @@ export default function ReviewPage() {
     }
   }
 
-  const bulkUpdateStatus = async (status: 'approved' | 'rejected') => {
+  const bulkApprove = async () => {
     if (selected.size === 0) return
     const ids = [...selected]
     const { error } = await supabase
       .from('images')
-      .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: 'curator' })
+      .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'curator' })
       .in('id', ids)
-
     if (!error) {
       setSelected(new Set())
       fetchImages()
@@ -116,14 +115,47 @@ export default function ReviewPage() {
     }
   }
 
-  const updateSingleImage = async (id: string, updates: Partial<ImageRecord>) => {
-    const { error } = await supabase.from('images').update(updates).eq('id', id)
-    if (!error) {
+  const bulkReject = async () => {
+    if (selected.size === 0) return
+    if (!confirm(`Reject ${selected.size} image(s)? They will be removed from the library. Original files stay safe in Google Drive.`)) return
+    const ids = [...selected]
+    const res = await fetch('/api/images', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    if (res.ok) {
+      setSelected(new Set())
       fetchImages()
       fetchStats()
-      if (modalImage?.id === id) {
-        setModalImage({ ...modalImage, ...updates } as ImageRecord)
-      }
+      fetchTags()
+    }
+  }
+
+  const rejectSingleImage = async (id: string) => {
+    if (!confirm('Reject this image? It will be removed from the library. The original file stays safe in Google Drive.')) return
+    const res = await fetch('/api/images', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+    })
+    if (res.ok) {
+      setModalImage(null)
+      fetchImages()
+      fetchStats()
+      fetchTags()
+    }
+  }
+
+  const approveSingleImage = async (id: string) => {
+    const { error } = await supabase
+      .from('images')
+      .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'curator' })
+      .eq('id', id)
+    if (!error) {
+      setModalImage(null)
+      fetchImages()
+      fetchStats()
     }
   }
 
@@ -150,7 +182,7 @@ export default function ReviewPage() {
             { label: 'Total', value: stats.total, color: 'bg-stone-100 text-stone-800' },
             { label: 'Pending', value: stats.pending, color: 'bg-amber-50 text-amber-700' },
             { label: 'Approved', value: stats.approved, color: 'bg-emerald-50 text-emerald-700' },
-            { label: 'Rejected', value: stats.rejected, color: 'bg-red-50 text-red-700' },
+            { label: 'Rejected', value: stats.rejected, color: 'bg-stone-100 text-stone-500' },
           ].map(s => (
             <div key={s.label} className={`rounded-lg px-4 py-3 ${s.color}`}>
               <div className="text-2xl font-bold">{s.value}</div>
@@ -168,10 +200,9 @@ export default function ReviewPage() {
               value={filters.status}
               onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
             >
-              <option value="all">All Status</option>
-              <option value="pending_approval">Pending</option>
+              <option value="all">All</option>
+              <option value="pending_approval">Pending Review</option>
               <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
             </select>
 
             {/* Quality filter */}
@@ -230,13 +261,13 @@ export default function ReviewPage() {
             <span className="text-sm">{selected.size} image{selected.size > 1 ? 's' : ''} selected</span>
             <div className="flex gap-2">
               <button
-                onClick={() => bulkUpdateStatus('approved')}
+                onClick={bulkApprove}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
               >
                 Approve Selected
               </button>
               <button
-                onClick={() => bulkUpdateStatus('rejected')}
+                onClick={bulkReject}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
               >
                 Reject Selected
@@ -465,25 +496,13 @@ export default function ReviewPage() {
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t border-stone-200">
                   <button
-                    onClick={() =>
-                      updateSingleImage(modalImage.id, {
-                        status: 'approved',
-                        reviewed_at: new Date().toISOString(),
-                        reviewed_by: 'curator',
-                      })
-                    }
+                    onClick={() => approveSingleImage(modalImage.id)}
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
                   >
                     Approve
                   </button>
                   <button
-                    onClick={() =>
-                      updateSingleImage(modalImage.id, {
-                        status: 'rejected',
-                        reviewed_at: new Date().toISOString(),
-                        reviewed_by: 'curator',
-                      })
-                    }
+                    onClick={() => rejectSingleImage(modalImage.id)}
                     className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-md text-sm font-medium"
                   >
                     Reject

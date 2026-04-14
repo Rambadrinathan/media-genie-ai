@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data)
 }
 
+// PATCH — approve images (status → approved)
 export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
@@ -58,4 +59,47 @@ export async function PATCH(request: NextRequest) {
   }
 
   return NextResponse.json({ updated: ids.length })
+}
+
+// DELETE — reject images: remove from Supabase DB + Storage
+// Google Drive files stay untouched (GDrive = permanent archive)
+export async function DELETE(request: NextRequest) {
+  const supabase = createServiceClient()
+  const body = await request.json()
+  const { ids } = body
+
+  if (!ids || !Array.isArray(ids)) {
+    return NextResponse.json({ error: 'ids required' }, { status: 400 })
+  }
+
+  // 1. Fetch image IDs for thumbnail cleanup
+  const { data: images, error: fetchError } = await supabase
+    .from('images')
+    .select('id')
+    .in('id', ids)
+
+  if (fetchError) {
+    return NextResponse.json({ error: fetchError.message }, { status: 500 })
+  }
+
+  // 2. Delete thumbnails from Supabase Storage
+  const filesToRemove: string[] = []
+  for (const img of images || []) {
+    filesToRemove.push(`${img.id}/400.jpg`, `${img.id}/800.jpg`)
+  }
+  if (filesToRemove.length > 0) {
+    await supabase.storage.from('thumbnails').remove(filesToRemove)
+  }
+
+  // 3. Delete rows from Supabase DB
+  const { error: deleteError } = await supabase
+    .from('images')
+    .delete()
+    .in('id', ids)
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ deleted: ids.length })
 }
