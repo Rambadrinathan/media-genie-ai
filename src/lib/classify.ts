@@ -35,6 +35,34 @@ Analyze this image and return a JSON object with these fields:
 
 Return ONLY the JSON object, no markdown formatting, no explanation.`
 
+export async function classifyImageBuffer(
+  buffer: Buffer,
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/jpeg'
+): Promise<ImageAnalysis> {
+  const base64 = buffer.toString('base64')
+
+  const response = await getAnthropic().messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1024,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64 },
+          },
+          { type: 'text', text: CLASSIFICATION_PROMPT },
+        ],
+      },
+    ],
+  })
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : ''
+  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  return JSON.parse(cleaned)
+}
+
 export async function classifyImage(imagePath: string): Promise<ImageAnalysis> {
   const imageBuffer = fs.readFileSync(imagePath)
   const base64 = imageBuffer.toString('base64')

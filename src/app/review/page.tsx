@@ -6,6 +6,7 @@ import { AdminGate } from '@/components/AdminGate'
 import { Header } from '@/components/Header'
 import { useToast } from '@/components/Toast'
 import { ConfirmModal } from '@/components/ConfirmModal'
+import { ImageUploader } from '@/components/ImageUploader'
 import type { ImageRecord } from '@/lib/types'
 
 type FilterState = {
@@ -37,6 +38,7 @@ function ReviewContent() {
   })
   const [allTags, setAllTags] = useState<string[]>([])
   const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, deleted: 0 })
+  const [showUploader, setShowUploader] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve' | 'reject'
     ids: string[]
@@ -241,6 +243,33 @@ function ReviewContent() {
             </div>
           ))}
         </div>
+
+        {/* Upload button */}
+        {!showUploader && (
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => setShowUploader(true)}
+              className="bg-stone-800 hover:bg-stone-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Upload Images
+            </button>
+          </div>
+        )}
+
+        {/* Image uploader */}
+        {showUploader && (
+          <ImageUploader
+            onComplete={() => {
+              fetchImages()
+              fetchStats()
+              fetchTags()
+            }}
+            onClose={() => setShowUploader(false)}
+          />
+        )}
 
         {/* Filters */}
         <div className="bg-white rounded-lg border border-stone-200 p-4 mb-6">
