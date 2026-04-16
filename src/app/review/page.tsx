@@ -523,6 +523,9 @@ function ReviewContent() {
 
 // ---- Image Detail Modal with Edit Mode ----
 
+const DEFAULT_FOLDERS = ['bamboo-structures','garden-installations','interior-design','exterior-views','drone-aerial','3d-renders','team-photos','events','marketing-brand','construction-progress','before-after','planters','nursery','landscapes','detail-shots','client-sites','misc']
+const DEFAULT_SCENES = ['site-visit','workshop','exhibition','office','outdoor','studio','construction-site','nursery','event-venue','campus','residential','commercial','aerial-view','render-view']
+
 function ImageDetailModal({
   image,
   isTrashView,
@@ -551,13 +554,36 @@ function ImageDetailModal({
   const [editQuality, setEditQuality] = useState(image.quality_score || 0)
   const [newTag, setNewTag] = useState('')
 
+  // Dynamic taxonomy
+  const [allFolders, setAllFolders] = useState<string[]>(DEFAULT_FOLDERS)
+  const [allScenes, setAllScenes] = useState<string[]>(DEFAULT_SCENES)
+  const [taxonomy, setTaxonomy] = useState<Record<string, string[]>>({})
+  const [addingNewFolder, setAddingNewFolder] = useState(false)
+  const [addingNewScene, setAddingNewScene] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [newSceneName, setNewSceneName] = useState('')
+
+  async function fetchTaxonomy() {
+    const res = await fetch('/api/images/taxonomy')
+    if (res.ok) {
+      const data = await res.json()
+      // Merge DB values with defaults (union)
+      setAllFolders([...new Set([...DEFAULT_FOLDERS, ...data.folders])].sort())
+      setAllScenes([...new Set([...DEFAULT_SCENES, ...data.scenes])].sort())
+      setTaxonomy(data.taxonomy || {})
+    }
+  }
+
   function startEditing() {
     setEditCaption(image.ai_caption || '')
     setEditTags([...(image.tags || [])])
     setEditScene(image.scene || '')
     setEditFolder(image.classified_folder || '')
     setEditQuality(image.quality_score || 0)
+    setAddingNewFolder(false)
+    setAddingNewScene(false)
     setEditing(true)
+    fetchTaxonomy()
   }
 
   function addTag() {
@@ -570,6 +596,37 @@ function ImageDetailModal({
 
   function removeTag(tag: string) {
     setEditTags(editTags.filter(t => t !== tag))
+  }
+
+  function addNewFolder() {
+    const name = newFolderName.trim().toLowerCase().replace(/\s+/g, '-')
+    if (name) {
+      if (!allFolders.includes(name)) {
+        setAllFolders(prev => [...prev, name].sort())
+      }
+      setEditFolder(name)
+      setAddingNewFolder(false)
+      setNewFolderName('')
+    }
+  }
+
+  function addNewScene() {
+    const name = newSceneName.trim().toLowerCase().replace(/\s+/g, '-')
+    if (name) {
+      if (!allScenes.includes(name)) {
+        setAllScenes(prev => [...prev, name].sort())
+      }
+      setEditScene(name)
+      setAddingNewScene(false)
+      setNewSceneName('')
+    }
+  }
+
+  // Get scenes relevant to the selected folder (shown first), then the rest
+  function getScenesForFolder(): { related: string[]; other: string[] } {
+    const related = taxonomy[editFolder] || []
+    const other = allScenes.filter(s => !related.includes(s))
+    return { related, other }
   }
 
   async function saveDetails() {
@@ -600,6 +657,8 @@ function ImageDetailModal({
       showToast('Failed to save', 'error')
     }
   }
+
+  const { related: relatedScenes, other: otherScenes } = getScenesForFolder()
 
   return (
     <div
@@ -711,32 +770,93 @@ function ImageDetailModal({
                   />
                 </div>
 
-                {/* Scene */}
+                {/* Folder (Level 1) */}
                 <div>
-                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Scene</h3>
-                  <select
-                    value={editScene}
-                    onChange={e => setEditScene(e.target.value)}
-                    className="w-full border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
-                  >
-                    {['site-visit','workshop','exhibition','office','outdoor','studio','construction-site','nursery','event-venue','campus','residential','commercial','aerial-view','render-view'].map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">
+                    Folder <span className="text-stone-300 normal-case">(Level 1 — category)</span>
+                  </h3>
+                  {addingNewFolder ? (
+                    <div className="flex gap-1">
+                      <input
+                        type="text"
+                        value={newFolderName}
+                        onChange={e => setNewFolderName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewFolder() } }}
+                        placeholder="new-folder-name"
+                        className="flex-1 border border-stone-300 rounded-md px-2 py-1.5 text-sm"
+                        autoFocus
+                      />
+                      <button onClick={addNewFolder} disabled={!newFolderName.trim()} className="px-2 py-1 bg-stone-800 text-white rounded-md text-sm disabled:bg-stone-300">Add</button>
+                      <button onClick={() => setAddingNewFolder(false)} className="px-2 py-1 text-sm text-stone-500 border border-stone-300 rounded-md">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <select
+                        value={editFolder}
+                        onChange={e => setEditFolder(e.target.value)}
+                        className="flex-1 border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
+                      >
+                        {allFolders.map(f => (
+                          <option key={f} value={f}>{f}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => setAddingNewFolder(true)}
+                        className="px-2 py-1 text-xs text-stone-500 border border-stone-300 rounded-md hover:bg-stone-50 whitespace-nowrap"
+                      >
+                        + New
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Folder */}
+                {/* Scene (Level 2 — filtered by folder) */}
                 <div>
-                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Folder</h3>
-                  <select
-                    value={editFolder}
-                    onChange={e => setEditFolder(e.target.value)}
-                    className="w-full border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
-                  >
-                    {['bamboo-structures','garden-installations','interior-design','exterior-views','drone-aerial','3d-renders','team-photos','events','marketing-brand','construction-progress','before-after','planters','nursery','landscapes','detail-shots','client-sites','misc'].map(f => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
-                  </select>
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">
+                    Scene <span className="text-stone-300 normal-case">(Level 2 — context)</span>
+                  </h3>
+                  {addingNewScene ? (
+                    <div className="flex gap-1">
+                      <input
+                        type="text"
+                        value={newSceneName}
+                        onChange={e => setNewSceneName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewScene() } }}
+                        placeholder="new-scene-name"
+                        className="flex-1 border border-stone-300 rounded-md px-2 py-1.5 text-sm"
+                        autoFocus
+                      />
+                      <button onClick={addNewScene} disabled={!newSceneName.trim()} className="px-2 py-1 bg-stone-800 text-white rounded-md text-sm disabled:bg-stone-300">Add</button>
+                      <button onClick={() => setAddingNewScene(false)} className="px-2 py-1 text-sm text-stone-500 border border-stone-300 rounded-md">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <select
+                        value={editScene}
+                        onChange={e => setEditScene(e.target.value)}
+                        className="flex-1 border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
+                      >
+                        {relatedScenes.length > 0 && (
+                          <optgroup label={`Used with ${editFolder}`}>
+                            {relatedScenes.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label={relatedScenes.length > 0 ? 'All scenes' : 'Scenes'}>
+                          {otherScenes.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      <button
+                        onClick={() => setAddingNewScene(true)}
+                        className="px-2 py-1 text-xs text-stone-500 border border-stone-300 rounded-md hover:bg-stone-50 whitespace-nowrap"
+                      >
+                        + New
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Non-editable info */}
