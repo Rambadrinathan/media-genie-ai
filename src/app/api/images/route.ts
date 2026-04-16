@@ -53,6 +53,38 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'ids required' }, { status: 400 })
   }
 
+  // Update details action — edit metadata for a single image
+  if (action === 'update_details') {
+    const { id, details } = body
+    if (!id || !details) {
+      return NextResponse.json({ error: 'id and details required' }, { status: 400 })
+    }
+
+    const allowedFields = ['ai_caption', 'tags', 'quality_score', 'scene', 'classified_folder']
+    const updates: Record<string, unknown> = {}
+    for (const field of allowedFields) {
+      if (details[field] !== undefined) {
+        updates[field] = details[field]
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    const { error } = await supabase
+      .from('images')
+      .update(updates)
+      .eq('id', id)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    await logAudit('edit_details', 'image', [id], { fields: Object.keys(updates) })
+    return NextResponse.json({ updated: true })
+  }
+
   // Restore action — undo soft delete
   if (action === 'restore') {
     const { error } = await supabase

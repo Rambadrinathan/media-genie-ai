@@ -488,145 +488,16 @@ function ReviewContent() {
 
       {/* Modal */}
       {modalImage && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-          onClick={() => setModalImage(null)}
-        >
-          <div
-            className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="grid md:grid-cols-2 gap-0">
-              {/* Image preview */}
-              <div className="bg-stone-100 flex items-center justify-center min-h-80">
-                {modalImage.cdn_url ? (
-                  <img
-                    src={modalImage.cdn_url}
-                    alt={modalImage.ai_caption || modalImage.filename}
-                    className="max-w-full max-h-[70vh] object-contain"
-                  />
-                ) : (
-                  <div className="text-stone-300 text-6xl">?</div>
-                )}
-              </div>
-
-              {/* Details */}
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-stone-800">Image Details</h2>
-                  <button
-                    onClick={() => setModalImage(null)}
-                    className="text-stone-400 hover:text-stone-600 text-xl"
-                  >
-                    x
-                  </button>
-                </div>
-
-                {/* Tags */}
-                <div className="mb-4">
-                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Tags</h3>
-                  <div className="flex flex-wrap gap-1">
-                    {(modalImage.tags || []).map(tag => (
-                      <span
-                        key={tag}
-                        className="px-2 py-1 bg-stone-100 text-stone-600 rounded-md text-sm"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Caption */}
-                <div className="mb-4">
-                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Caption</h3>
-                  <p className="text-sm text-stone-700">{modalImage.ai_caption || 'No caption'}</p>
-                </div>
-
-                {/* Metadata */}
-                <div className="mb-4">
-                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Metadata</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-stone-400">Quality:</span>{' '}
-                      <span className="font-medium">{modalImage.quality_score?.toFixed(1)}/10</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400">Size:</span>{' '}
-                      <span className="font-medium">
-                        {modalImage.width} x {modalImage.height}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400">Folder:</span>{' '}
-                      <span className="font-medium">{modalImage.classified_folder}</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400">Scene:</span>{' '}
-                      <span className="font-medium">{modalImage.scene}</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400">File:</span>{' '}
-                      <span className="font-medium truncate">{modalImage.filename}</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400">Status:</span>{' '}
-                      <span className="font-medium">{modalImage.status}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Colors */}
-                {modalImage.dominant_colors && modalImage.dominant_colors.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Colors</h3>
-                    <div className="flex gap-2">
-                      {modalImage.dominant_colors.map((color, i) => (
-                        <div key={i} className="flex items-center gap-1">
-                          <div
-                            className="w-6 h-6 rounded border border-stone-200"
-                            style={{ backgroundColor: color }}
-                          />
-                          <span className="text-xs text-stone-400">{color}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t border-stone-200">
-                  {isTrashView ? (
-                    <button
-                      onClick={() => {
-                        restoreImages([modalImage.id])
-                        setModalImage(null)
-                      }}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
-                    >
-                      Restore
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => approveSingleImage(modalImage.id)}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => rejectSingleImage(modalImage.id)}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-md text-sm font-medium"
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ImageDetailModal
+          image={modalImage}
+          isTrashView={isTrashView}
+          onClose={() => setModalImage(null)}
+          onApprove={() => approveSingleImage(modalImage.id)}
+          onReject={() => rejectSingleImage(modalImage.id)}
+          onRestore={() => { restoreImages([modalImage.id]); setModalImage(null) }}
+          onSaved={() => { fetchImages(); fetchTags() }}
+          showToast={showToast}
+        />
       )}
 
       {/* Confirm Modal */}
@@ -646,6 +517,351 @@ function ReviewContent() {
           onCancel={() => setConfirmAction(null)}
         />
       )}
+    </div>
+  )
+}
+
+// ---- Image Detail Modal with Edit Mode ----
+
+function ImageDetailModal({
+  image,
+  isTrashView,
+  onClose,
+  onApprove,
+  onReject,
+  onRestore,
+  onSaved,
+  showToast,
+}: {
+  image: ImageRecord
+  isTrashView: boolean
+  onClose: () => void
+  onApprove: () => void
+  onReject: () => void
+  onRestore: () => void
+  onSaved: () => void
+  showToast: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editCaption, setEditCaption] = useState(image.ai_caption || '')
+  const [editTags, setEditTags] = useState<string[]>(image.tags || [])
+  const [editScene, setEditScene] = useState(image.scene || '')
+  const [editFolder, setEditFolder] = useState(image.classified_folder || '')
+  const [editQuality, setEditQuality] = useState(image.quality_score || 0)
+  const [newTag, setNewTag] = useState('')
+
+  function startEditing() {
+    setEditCaption(image.ai_caption || '')
+    setEditTags([...(image.tags || [])])
+    setEditScene(image.scene || '')
+    setEditFolder(image.classified_folder || '')
+    setEditQuality(image.quality_score || 0)
+    setEditing(true)
+  }
+
+  function addTag() {
+    const tag = newTag.trim().toLowerCase().replace(/\s+/g, '-')
+    if (tag && !editTags.includes(tag)) {
+      setEditTags([...editTags, tag])
+    }
+    setNewTag('')
+  }
+
+  function removeTag(tag: string) {
+    setEditTags(editTags.filter(t => t !== tag))
+  }
+
+  async function saveDetails() {
+    setSaving(true)
+    const res = await fetch('/api/images', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ids: [image.id],
+        action: 'update_details',
+        id: image.id,
+        details: {
+          ai_caption: editCaption,
+          tags: editTags,
+          scene: editScene,
+          classified_folder: editFolder,
+          quality_score: editQuality,
+        },
+      }),
+    })
+    setSaving(false)
+    if (res.ok) {
+      showToast('Details saved', 'success')
+      setEditing(false)
+      onSaved()
+      onClose()
+    } else {
+      showToast('Failed to save', 'error')
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="grid md:grid-cols-2 gap-0">
+          {/* Image preview */}
+          <div className="bg-stone-100 flex items-center justify-center min-h-80">
+            {image.cdn_url ? (
+              <img
+                src={image.cdn_url}
+                alt={image.ai_caption || image.filename}
+                className="max-w-full max-h-[70vh] object-contain"
+              />
+            ) : (
+              <div className="text-stone-300 text-6xl">?</div>
+            )}
+          </div>
+
+          {/* Details */}
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-stone-800">Image Details</h2>
+              <div className="flex items-center gap-2">
+                {!editing && !isTrashView && (
+                  <button
+                    onClick={startEditing}
+                    className="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-1"
+                  >
+                    Edit Details
+                  </button>
+                )}
+                <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-xl">
+                  x
+                </button>
+              </div>
+            </div>
+
+            {editing ? (
+              /* ---- EDIT MODE ---- */
+              <div className="space-y-4">
+                {/* Tags */}
+                <div>
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Tags</h3>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {editTags.map(tag => (
+                      <span
+                        key={tag}
+                        className="px-2 py-1 bg-stone-100 text-stone-600 rounded-md text-sm flex items-center gap-1"
+                      >
+                        {tag}
+                        <button
+                          onClick={() => removeTag(tag)}
+                          className="text-stone-400 hover:text-red-500 ml-0.5"
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      value={newTag}
+                      onChange={e => setNewTag(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
+                      placeholder="Add a tag..."
+                      className="flex-1 border border-stone-300 rounded-md px-2 py-1 text-sm"
+                    />
+                    <button
+                      onClick={addTag}
+                      disabled={!newTag.trim()}
+                      className="px-2 py-1 bg-stone-800 text-white rounded-md text-sm disabled:bg-stone-300"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                {/* Caption */}
+                <div>
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Caption</h3>
+                  <textarea
+                    value={editCaption}
+                    onChange={e => setEditCaption(e.target.value)}
+                    className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Quality */}
+                <div>
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">
+                    Quality Score: {editQuality.toFixed(1)}/10
+                  </h3>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={editQuality}
+                    onChange={e => setEditQuality(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Scene */}
+                <div>
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Scene</h3>
+                  <select
+                    value={editScene}
+                    onChange={e => setEditScene(e.target.value)}
+                    className="w-full border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
+                  >
+                    {['site-visit','workshop','exhibition','office','outdoor','studio','construction-site','nursery','event-venue','campus','residential','commercial','aerial-view','render-view'].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Folder */}
+                <div>
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Folder</h3>
+                  <select
+                    value={editFolder}
+                    onChange={e => setEditFolder(e.target.value)}
+                    className="w-full border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
+                  >
+                    {['bamboo-structures','garden-installations','interior-design','exterior-views','drone-aerial','3d-renders','team-photos','events','marketing-brand','construction-progress','before-after','planters','nursery','landscapes','detail-shots','client-sites','misc'].map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Non-editable info */}
+                <div className="text-xs text-stone-400 pt-2 border-t border-stone-100">
+                  {image.width} x {image.height} | {image.filename} | {image.status}
+                </div>
+
+                {/* Save / Cancel */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={saveDetails}
+                    disabled={saving}
+                    className="flex-1 bg-stone-800 hover:bg-stone-900 disabled:bg-stone-300 text-white py-2 rounded-md text-sm font-medium"
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="px-4 py-2 text-sm text-stone-600 border border-stone-300 rounded-md hover:bg-stone-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ---- VIEW MODE ---- */
+              <>
+                {/* Tags */}
+                <div className="mb-4">
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Tags</h3>
+                  <div className="flex flex-wrap gap-1">
+                    {(image.tags || []).map(tag => (
+                      <span key={tag} className="px-2 py-1 bg-stone-100 text-stone-600 rounded-md text-sm">
+                        {tag}
+                      </span>
+                    ))}
+                    {(!image.tags || image.tags.length === 0) && (
+                      <span className="text-sm text-stone-400">No tags</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Caption */}
+                <div className="mb-4">
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Caption</h3>
+                  <p className="text-sm text-stone-700">{image.ai_caption || 'No caption'}</p>
+                </div>
+
+                {/* Metadata */}
+                <div className="mb-4">
+                  <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Metadata</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-stone-400">Quality:</span>{' '}
+                      <span className="font-medium">{image.quality_score?.toFixed(1)}/10</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Size:</span>{' '}
+                      <span className="font-medium">{image.width} x {image.height}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Folder:</span>{' '}
+                      <span className="font-medium">{image.classified_folder}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Scene:</span>{' '}
+                      <span className="font-medium">{image.scene}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">File:</span>{' '}
+                      <span className="font-medium truncate">{image.filename}</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Status:</span>{' '}
+                      <span className="font-medium">{image.status}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Colors */}
+                {image.dominant_colors && image.dominant_colors.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Colors</h3>
+                    <div className="flex gap-2">
+                      {image.dominant_colors.map((color, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          <div className="w-6 h-6 rounded border border-stone-200" style={{ backgroundColor: color }} />
+                          <span className="text-xs text-stone-400">{color}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4 border-t border-stone-200">
+                  {isTrashView ? (
+                    <button
+                      onClick={onRestore}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
+                    >
+                      Restore
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={onApprove}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={onReject}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-md text-sm font-medium"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
