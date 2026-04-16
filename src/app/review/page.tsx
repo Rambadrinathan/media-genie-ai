@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { AdminGate } from '@/components/AdminGate'
+import { Header } from '@/components/Header'
+import { useToast } from '@/components/Toast'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import type { ImageRecord } from '@/lib/types'
 
 type FilterState = {
@@ -12,6 +16,15 @@ type FilterState = {
 }
 
 export default function ReviewPage() {
+  return (
+    <AdminGate>
+      <ReviewContent />
+    </AdminGate>
+  )
+}
+
+function ReviewContent() {
+  const { showToast } = useToast()
   const [images, setImages] = useState<ImageRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -23,13 +36,29 @@ export default function ReviewPage() {
     search: '',
   })
   const [allTags, setAllTags] = useState<string[]>([])
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, deleted: 0 })
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'approve' | 'reject'
+    ids: string[]
+    thumbnails: string[]
+  } | null>(null)
 
   const fetchImages = useCallback(async () => {
     setLoading(true)
+
+    if (filters.status === 'deleted') {
+      // Fetch soft-deleted images via API
+      const res = await fetch('/api/images?deleted=true&limit=100')
+      const data = await res.json()
+      setImages(Array.isArray(data) ? data : [])
+      setLoading(false)
+      return
+    }
+
     let query = supabase
       .from('images')
       .select('*')
+      .is('deleted_at', null)
       .order('uploaded_at', { ascending: false })
 
     if (filters.status !== 'all') {
@@ -55,22 +84,24 @@ export default function ReviewPage() {
   }, [filters])
 
   const fetchStats = useCallback(async () => {
-    const [total, pending, approved, rejected] = await Promise.all([
-      supabase.from('images').select('id', { count: 'exact', head: true }),
-      supabase.from('images').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval'),
-      supabase.from('images').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
-      supabase.from('images').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
+    const [total, pending, approved, rejected, deleted] = await Promise.all([
+      supabase.from('images').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+      supabase.from('images').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval').is('deleted_at', null),
+      supabase.from('images').select('id', { count: 'exact', head: true }).eq('status', 'approved').is('deleted_at', null),
+      supabase.from('images').select('id', { count: 'exact', head: true }).eq('status', 'rejected').is('deleted_at', null),
+      supabase.from('images').select('id', { count: 'exact', head: true }).not('deleted_at', 'is', null),
     ])
     setStats({
       total: total.count || 0,
       pending: pending.count || 0,
       approved: approved.count || 0,
       rejected: rejected.count || 0,
+      deleted: deleted.count || 0,
     })
   }, [])
 
   const fetchTags = useCallback(async () => {
-    const { data } = await supabase.from('images').select('tags')
+    const { data } = await supabase.from('images').select('tags').is('deleted_at', null)
     if (data) {
       const tagSet = new Set<string>()
       data.forEach(row => (row.tags || []).forEach((t: string) => tagSet.add(t)))
@@ -102,23 +133,32 @@ export default function ReviewPage() {
   }
 
   const bulkApprove = async () => {
-    if (selected.size === 0) return
     const ids = [...selected]
-    const { error } = await supabase
-      .from('images')
-      .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'curator' })
-      .in('id', ids)
-    if (!error) {
+    const thumbnails = images.filter(img => ids.includes(img.id)).map(img => img.thumbnail_url || '').filter(Boolean)
+    setConfirmAction({ type: 'approve', ids, thumbnails })
+  }
+
+  const bulkReject = async () => {
+    const ids = [...selected]
+    const thumbnails = images.filter(img => ids.includes(img.id)).map(img => img.thumbnail_url || '').filter(Boolean)
+    setConfirmAction({ type: 'reject', ids, thumbnails })
+  }
+
+  const executeApprove = async (ids: string[]) => {
+    const res = await fetch('/api/images', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, status: 'approved', reviewed_by: 'admin' }),
+    })
+    if (res.ok) {
       setSelected(new Set())
+      showToast(`${ids.length} image${ids.length > 1 ? 's' : ''} approved`, 'success')
       fetchImages()
       fetchStats()
     }
   }
 
-  const bulkReject = async () => {
-    if (selected.size === 0) return
-    if (!confirm(`Reject ${selected.size} image(s)? They will be removed from the library. Original files stay safe in Google Drive.`)) return
-    const ids = [...selected]
+  const executeReject = async (ids: string[]) => {
     const res = await fetch('/api/images', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -126,63 +166,74 @@ export default function ReviewPage() {
     })
     if (res.ok) {
       setSelected(new Set())
+      showToast(`${ids.length} image${ids.length > 1 ? 's' : ''} rejected`, 'warning', {
+        label: 'Undo',
+        onClick: () => restoreImages(ids),
+      })
       fetchImages()
       fetchStats()
       fetchTags()
     }
+  }
+
+  const restoreImages = async (ids: string[]) => {
+    const res = await fetch('/api/images', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, action: 'restore' }),
+    })
+    if (res.ok) {
+      showToast(`${ids.length} image${ids.length > 1 ? 's' : ''} restored`, 'success')
+      fetchImages()
+      fetchStats()
+      fetchTags()
+    }
+  }
+
+  const handleConfirm = () => {
+    if (!confirmAction) return
+    if (confirmAction.type === 'approve') {
+      executeApprove(confirmAction.ids)
+    } else {
+      executeReject(confirmAction.ids)
+    }
+    setConfirmAction(null)
   }
 
   const rejectSingleImage = async (id: string) => {
-    if (!confirm('Reject this image? It will be removed from the library. The original file stays safe in Google Drive.')) return
-    const res = await fetch('/api/images', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: [id] }),
-    })
-    if (res.ok) {
-      setModalImage(null)
-      fetchImages()
-      fetchStats()
-      fetchTags()
-    }
+    setModalImage(null)
+    executeReject([id])
   }
 
   const approveSingleImage = async (id: string) => {
-    const { error } = await supabase
-      .from('images')
-      .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'curator' })
-      .eq('id', id)
-    if (!error) {
+    const res = await fetch('/api/images', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id], status: 'approved', reviewed_by: 'admin' }),
+    })
+    if (res.ok) {
       setModalImage(null)
+      showToast('Image approved', 'success')
       fetchImages()
       fetchStats()
     }
   }
 
+  const isTrashView = filters.status === 'deleted'
+
   return (
     <div className="min-h-screen bg-stone-50">
-      {/* Header */}
-      <header className="bg-white border-b border-stone-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold text-stone-800">KarmYog Gallery</h1>
-            <span className="text-sm text-stone-500">Image Management</span>
-          </div>
-          <nav className="flex items-center gap-4 text-sm">
-            <a href="/review" className="text-stone-800 font-medium">Review</a>
-            <a href="/portfolio" className="text-stone-500 hover:text-stone-800">Portfolios</a>
-          </nav>
-        </div>
-      </header>
+      <Header variant="admin" page="review" />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
           {[
             { label: 'Total', value: stats.total, color: 'bg-stone-100 text-stone-800' },
             { label: 'Pending', value: stats.pending, color: 'bg-amber-50 text-amber-700' },
             { label: 'Approved', value: stats.approved, color: 'bg-emerald-50 text-emerald-700' },
             { label: 'Rejected', value: stats.rejected, color: 'bg-stone-100 text-stone-500' },
+            { label: 'Trash', value: stats.deleted, color: 'bg-red-50 text-red-600' },
           ].map(s => (
             <div key={s.label} className={`rounded-lg px-4 py-3 ${s.color}`}>
               <div className="text-2xl font-bold">{s.value}</div>
@@ -194,7 +245,6 @@ export default function ReviewPage() {
         {/* Filters */}
         <div className="bg-white rounded-lg border border-stone-200 p-4 mb-6">
           <div className="flex flex-wrap items-center gap-3">
-            {/* Status filter */}
             <select
               className="border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
               value={filters.status}
@@ -203,55 +253,57 @@ export default function ReviewPage() {
               <option value="all">All</option>
               <option value="pending_approval">Pending Review</option>
               <option value="approved">Approved</option>
+              <option value="deleted">Trash</option>
             </select>
 
-            {/* Quality filter */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-stone-500">Min Quality:</span>
-              <input
-                type="range"
-                min="0"
-                max="10"
-                step="1"
-                value={filters.minQuality}
-                onChange={e => setFilters(f => ({ ...f, minQuality: Number(e.target.value) }))}
-                className="w-24"
-              />
-              <span className="text-stone-700 font-medium w-4">{filters.minQuality}</span>
-            </div>
+            {!isTrashView && (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-stone-500">Min Quality:</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="1"
+                    value={filters.minQuality}
+                    onChange={e => setFilters(f => ({ ...f, minQuality: Number(e.target.value) }))}
+                    className="w-24"
+                  />
+                  <span className="text-stone-700 font-medium w-4">{filters.minQuality}</span>
+                </div>
 
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search filename or caption..."
-              className="border border-stone-300 rounded-md px-3 py-1.5 text-sm flex-1 min-w-48"
-              value={filters.search}
-              onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-            />
+                <input
+                  type="text"
+                  placeholder="Search filename or caption..."
+                  className="border border-stone-300 rounded-md px-3 py-1.5 text-sm flex-1 min-w-48"
+                  value={filters.search}
+                  onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+                />
 
-            {/* Tag filter */}
-            <div className="flex flex-wrap gap-1">
-              {allTags.slice(0, 10).map(tag => (
-                <button
-                  key={tag}
-                  onClick={() =>
-                    setFilters(f => ({
-                      ...f,
-                      tags: f.tags.includes(tag)
-                        ? f.tags.filter(t => t !== tag)
-                        : [...f.tags, tag],
-                    }))
-                  }
-                  className={`px-2 py-0.5 rounded-full text-xs border transition ${
-                    filters.tags.includes(tag)
-                      ? 'bg-stone-800 text-white border-stone-800'
-                      : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-1">
+                  {allTags.slice(0, 10).map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() =>
+                        setFilters(f => ({
+                          ...f,
+                          tags: f.tags.includes(tag)
+                            ? f.tags.filter(t => t !== tag)
+                            : [...f.tags, tag],
+                        }))
+                      }
+                      className={`px-2 py-0.5 rounded-full text-xs border transition ${
+                        filters.tags.includes(tag)
+                          ? 'bg-stone-800 text-white border-stone-800'
+                          : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -260,18 +312,29 @@ export default function ReviewPage() {
           <div className="bg-stone-800 text-white rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
             <span className="text-sm">{selected.size} image{selected.size > 1 ? 's' : ''} selected</span>
             <div className="flex gap-2">
-              <button
-                onClick={bulkApprove}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
-              >
-                Approve Selected
-              </button>
-              <button
-                onClick={bulkReject}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
-              >
-                Reject Selected
-              </button>
+              {isTrashView ? (
+                <button
+                  onClick={() => restoreImages([...selected])}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
+                >
+                  Restore Selected
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={bulkApprove}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
+                  >
+                    Approve Selected
+                  </button>
+                  <button
+                    onClick={bulkReject}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
+                  >
+                    Reject Selected
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setSelected(new Set())}
                 className="text-stone-300 hover:text-white px-3 py-1.5 text-sm"
@@ -295,8 +358,12 @@ export default function ReviewPage() {
           <div className="text-center py-20 text-stone-400">Loading images...</div>
         ) : images.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-stone-400 text-lg">No images found</p>
-            <p className="text-stone-300 text-sm mt-1">Drop images into your Google Drive _inbox folder</p>
+            <p className="text-stone-400 text-lg">
+              {isTrashView ? 'Trash is empty' : 'No images found'}
+            </p>
+            <p className="text-stone-300 text-sm mt-1">
+              {isTrashView ? 'Rejected images appear here and can be restored' : 'Drop images into your Google Drive _inbox folder'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -305,7 +372,7 @@ export default function ReviewPage() {
                 key={img.id}
                 className={`group relative bg-white rounded-lg border overflow-hidden cursor-pointer transition ${
                   selected.has(img.id) ? 'border-stone-800 ring-2 ring-stone-800' : 'border-stone-200 hover:border-stone-400'
-                }`}
+                } ${isTrashView ? 'opacity-75' : ''}`}
               >
                 {/* Checkbox */}
                 <div
@@ -378,6 +445,11 @@ export default function ReviewPage() {
                       </span>
                     ))}
                   </div>
+                  {isTrashView && img.deleted_at && (
+                    <p className="text-[10px] text-red-400 mt-1">
+                      Deleted {new Date(img.deleted_at).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -495,23 +567,55 @@ export default function ReviewPage() {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t border-stone-200">
-                  <button
-                    onClick={() => approveSingleImage(modalImage.id)}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => rejectSingleImage(modalImage.id)}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-md text-sm font-medium"
-                  >
-                    Reject
-                  </button>
+                  {isTrashView ? (
+                    <button
+                      onClick={() => {
+                        restoreImages([modalImage.id])
+                        setModalImage(null)
+                      }}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
+                    >
+                      Restore
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => approveSingleImage(modalImage.id)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md text-sm font-medium"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectSingleImage(modalImage.id)}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-md text-sm font-medium"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Confirm Modal */}
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.type === 'approve' ? 'Approve Images' : 'Reject Images'}
+          message={
+            confirmAction.type === 'approve'
+              ? `Approve ${confirmAction.ids.length} image${confirmAction.ids.length > 1 ? 's' : ''}? They will be available for portfolios.`
+              : `Reject ${confirmAction.ids.length} image${confirmAction.ids.length > 1 ? 's' : ''}? They will move to trash. You can restore them later.`
+          }
+          confirmLabel={confirmAction.type === 'approve' ? 'Approve' : 'Reject'}
+          confirmColor={confirmAction.type === 'approve' ? 'emerald' : 'red'}
+          requireType={confirmAction.type === 'reject' && confirmAction.ids.length >= 5 ? 'reject' : undefined}
+          thumbnails={confirmAction.thumbnails.slice(0, 12)}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
       )}
     </div>
   )

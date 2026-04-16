@@ -36,6 +36,8 @@ export interface ImageRecord {
   thumbnail_url: string | null
   cdn_url: string | null
   created_at: string
+  deleted_at: string | null
+  deleted_by: string | null
 }
 
 export interface Portfolio {
@@ -51,4 +53,6 @@ export interface Portfolio {
   published_url: string | null
   status: 'draft' | 'published' | 'archived'
   created_at: string
+  deleted_at: string | null
+  updated_at: string | null
 }

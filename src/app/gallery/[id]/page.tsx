@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
+import { GalleryNav } from './GalleryNav'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -39,8 +40,14 @@ export default async function GalleryPage({ params }: Props) {
   const captions = portfolio.captions || {}
   const coverImage = images.find((img: { id: string }) => img.id === portfolio.cover_image_id) || images[0]
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const portfolioUrl = `${appUrl}/gallery/${id}`
+
   return (
     <div className="min-h-screen bg-stone-50">
+      {/* Navigation bar */}
+      <GalleryNav title={portfolio.title} url={portfolioUrl} portfolioId={id} />
+
       {/* Hero */}
       <div className="relative h-[60vh] min-h-96 bg-stone-900 flex items-end">
         {coverImage?.cdn_url && (
