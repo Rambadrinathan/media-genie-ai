@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function Home() {
   return (
@@ -71,20 +72,21 @@ export default function Home() {
                 <div className="ml-3 text-[10px] text-stone-400 font-mono">media-genie-ai.vercel.app/review</div>
               </div>
 
-              {/* Fake image with tag overlays */}
+              {/* Real Vatika image with AI overlay annotations */}
               <div className="relative">
-                <div className="aspect-[4/3] bg-gradient-to-br from-emerald-100 via-amber-100 to-stone-200 relative overflow-hidden">
-                  {/* Faux photograph composition */}
-                  <div className="absolute inset-0 opacity-70"
-                    style={{
-                      background: 'radial-gradient(circle at 30% 40%, #d6e4b8 0%, transparent 50%), radial-gradient(circle at 70% 60%, #f4e4b8 0%, transparent 50%), linear-gradient(180deg, #e8dfc8 0%, #c9b88a 100%)'
-                    }}
+                <div className="aspect-[16/9] relative overflow-hidden bg-stone-200">
+                  <Image
+                    src="/demo/vatika-hero.jpeg"
+                    alt="Beachfront Vatika at sunset — bamboo cottages, solar roofs, garden landscaping"
+                    fill
+                    priority
+                    sizes="(max-width: 768px) 100vw, 600px"
+                    className="object-cover"
                   />
-                  <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-stone-800/40 to-transparent" />
 
                   {/* Quality score badge (top right) */}
                   <div className="absolute top-3 right-3 bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-lg">
-                    8.4 / 10
+                    9.2 / 10
                   </div>
 
                   {/* AI analyzing pulse indicator (top left) */}
@@ -95,7 +97,7 @@ export default function Home() {
 
                   {/* AI-generated tags (floating) */}
                   <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-1.5">
-                    {['bamboo', 'exterior', 'garden', 'warm-tones', 'landscape'].map(tag => (
+                    {['beachfront', 'bamboo-cottages', 'sunset', 'aerial', 'landscape', 'hero-shot'].map(tag => (
                       <span key={tag} className="bg-white/95 backdrop-blur text-stone-700 text-[11px] font-medium px-2 py-0.5 rounded-full shadow-sm">
                         {tag}
                       </span>
@@ -106,7 +108,7 @@ export default function Home() {
                 {/* Caption row */}
                 <div className="px-4 py-3 bg-white border-t border-stone-100">
                   <p className="text-xs text-stone-600 italic leading-relaxed">
-                    &ldquo;Bamboo-lined pathway in the golden hour, leading to an open garden pavilion.&rdquo;
+                    &ldquo;Aerial view of a beachfront Vatika at golden hour &mdash; bamboo cottages with solar roofs, central garden pavilion, families at play on the sand.&rdquo;
                   </p>
                   <p className="text-[10px] text-stone-400 mt-1">AI-generated caption</p>
                 </div>
