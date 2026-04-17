@@ -11,9 +11,6 @@ export default function Home() {
             <span className="font-semibold text-stone-900">Media Genie AI</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="https://github.com/Rambadrinathan/media-genie-ai" target="_blank" rel="noreferrer" className="text-sm text-stone-500 hover:text-stone-900 hidden sm:inline">
-              GitHub
-            </a>
             <Link
               href="/review"
               className="bg-stone-900 hover:bg-stone-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
@@ -291,7 +288,6 @@ export default function Home() {
             <span className="text-xs">AI-powered visual library and portfolio builder</span>
           </div>
           <div className="flex items-center gap-5">
-            <a href="https://github.com/Rambadrinathan/media-genie-ai" target="_blank" rel="noreferrer" className="hover:text-stone-900">GitHub</a>
             <Link href="/review" className="hover:text-stone-900">Log in</Link>
             <span className="text-xs text-stone-400">v1.0</span>
           </div>
