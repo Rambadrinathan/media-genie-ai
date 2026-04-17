@@ -38,7 +38,7 @@ export function Header({ variant, page }: HeaderProps) {
     <header className="bg-white border-b border-stone-200 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <a href="/" className="text-xl font-semibold text-stone-800">KarmYog Gallery</a>
+          <a href="/" className="text-xl font-semibold text-stone-800">Media Genie AI</a>
           <span className="text-sm text-stone-500">
             {page === 'review' ? 'Image Management' : 'Portfolios'}
           </span>

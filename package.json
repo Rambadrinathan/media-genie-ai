@@ -1,7 +1,15 @@
 {
-  "name": "karmyog-gallery",
-  "version": "0.1.0",
+  "name": "media-genie-ai",
+  "version": "1.0.0",
+  "description": "AI-powered image management and portfolio generator. Upload photos, auto-classify with Claude Vision, build shareable portfolios.",
   "private": true,
+  "homepage": "https://media-genie-ai.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rambadrinathan/media-genie-ai.git"
+  },
+  "author": "Ram Badrinathan",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

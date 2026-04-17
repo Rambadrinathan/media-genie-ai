@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KarmYog Gallery",
-  description: "AI-powered image management & portfolio generator",
+  title: "Media Genie AI",
+  description: "AI-powered image management and portfolio generator",
 };
 
 export default function RootLayout({

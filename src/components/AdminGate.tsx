@@ -68,7 +68,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-sm w-full mx-4">
           <div className="text-center mb-6">
-            <h1 className="text-xl font-semibold text-stone-800">KarmYog Gallery</h1>
+            <h1 className="text-xl font-semibold text-stone-800">Media Genie AI</h1>
             <p className="text-sm text-stone-500 mt-1">Enter admin PIN to continue</p>
           </div>
 
@@ -99,7 +99,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
           </form>
 
           <p className="text-xs text-stone-400 text-center mt-6">
-            KarmYog Vatika Gardens - Admin Access
+            Media Genie AI - Admin Access
           </p>
         </div>
       </div>
