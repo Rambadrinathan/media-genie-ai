@@ -7,6 +7,7 @@ import { Header } from '@/components/Header'
 import { useToast } from '@/components/Toast'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { ImageUploader } from '@/components/ImageUploader'
+import { sanitizeLabel, LIMITS } from '@/lib/validation'
 import type { ImageRecord } from '@/lib/types'
 
 type FilterState = {
@@ -587,7 +588,7 @@ function ImageDetailModal({
   }
 
   function addTag() {
-    const tag = newTag.trim().toLowerCase().replace(/\s+/g, '-')
+    const tag = sanitizeLabel(newTag, LIMITS.tag)
     if (tag && !editTags.includes(tag)) {
       setEditTags([...editTags, tag])
     }
@@ -599,7 +600,7 @@ function ImageDetailModal({
   }
 
   function addNewFolder() {
-    const name = newFolderName.trim().toLowerCase().replace(/\s+/g, '-')
+    const name = sanitizeLabel(newFolderName, LIMITS.folder)
     if (name) {
       if (!allFolders.includes(name)) {
         setAllFolders(prev => [...prev, name].sort())
@@ -611,7 +612,7 @@ function ImageDetailModal({
   }
 
   function addNewScene() {
-    const name = newSceneName.trim().toLowerCase().replace(/\s+/g, '-')
+    const name = sanitizeLabel(newSceneName, LIMITS.scene)
     if (name) {
       if (!allScenes.includes(name)) {
         setAllScenes(prev => [...prev, name].sort())
@@ -730,7 +731,8 @@ function ImageDetailModal({
                       value={newTag}
                       onChange={e => setNewTag(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
-                      placeholder="Add a tag..."
+                      placeholder={`Add a tag... (max ${LIMITS.tag} chars, no spaces)`}
+                      maxLength={LIMITS.tag}
                       className="flex-1 border border-stone-300 rounded-md px-2 py-1 text-sm"
                     />
                     <button
@@ -782,7 +784,8 @@ function ImageDetailModal({
                         value={newFolderName}
                         onChange={e => setNewFolderName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewFolder() } }}
-                        placeholder="new-folder-name"
+                        placeholder={`new-folder-name (max ${LIMITS.folder} chars)`}
+                        maxLength={LIMITS.folder}
                         className="flex-1 border border-stone-300 rounded-md px-2 py-1.5 text-sm"
                         autoFocus
                       />
@@ -822,7 +825,8 @@ function ImageDetailModal({
                         value={newSceneName}
                         onChange={e => setNewSceneName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewScene() } }}
-                        placeholder="new-scene-name"
+                        placeholder={`new-scene-name (max ${LIMITS.scene} chars)`}
+                        maxLength={LIMITS.scene}
                         className="flex-1 border border-stone-300 rounded-md px-2 py-1.5 text-sm"
                         autoFocus
                       />

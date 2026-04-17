@@ -34,13 +34,22 @@ function EditPortfolioContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
-  // Image picker filters
-  const [pickerFilterFolder, setPickerFilterFolder] = useState<string>('all')
-  const [pickerFilterScene, setPickerFilterScene] = useState<string>('all')
-  const [pickerFilterTags, setPickerFilterTags] = useState<string[]>([])
+  // Image picker state — server-driven, multi-select filters
+  const [pickerFolders, setPickerFolders] = useState<string[]>([])
+  const [pickerScenes, setPickerScenes] = useState<string[]>([])
+  const [pickerTags, setPickerTags] = useState<string[]>([])
   const [pickerMinQuality, setPickerMinQuality] = useState<number>(0)
   const [pickerSearch, setPickerSearch] = useState<string>('')
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set())
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [pickerTotal, setPickerTotal] = useState(0)
+  const [pickerTotalApproved, setPickerTotalApproved] = useState(0)
+  const [pickerHasMore, setPickerHasMore] = useState(false)
+  const [pickerLimit, setPickerLimit] = useState(15)
+  // Taxonomy (populated from API)
+  const [taxFolders, setTaxFolders] = useState<string[]>([])
+  const [taxScenes, setTaxScenes] = useState<string[]>([])
+  const [taxTags, setTaxTags] = useState<string[]>([])
 
   const fetchPortfolio = useCallback(async () => {
     setLoading(true)
@@ -63,25 +72,60 @@ function EditPortfolioContent() {
     fetchPortfolio()
   }, [fetchPortfolio])
 
+  const fetchPickerImages = useCallback(async (opts?: { limit?: number }) => {
+    setPickerLoading(true)
+    const res = await fetch('/api/images/pick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folders: pickerFolders,
+        scenes: pickerScenes,
+        tags: pickerTags,
+        minQuality: pickerMinQuality,
+        search: pickerSearch,
+        excludeIds: images.map(img => img.id),
+        limit: opts?.limit ?? pickerLimit,
+        offset: 0,
+      }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setAvailableImages(data.images || [])
+      setPickerTotal(data.total || 0)
+      setPickerTotalApproved(data.totalApproved || 0)
+      setPickerHasMore(data.hasMore || false)
+    }
+    setPickerLoading(false)
+  }, [pickerFolders, pickerScenes, pickerTags, pickerMinQuality, pickerSearch, pickerLimit, images])
+
   async function fetchAvailableImages() {
-    const { data } = await supabase
-      .from('images')
-      .select('*')
-      .eq('status', 'approved')
-      .is('deleted_at', null)
-      .order('quality_score', { ascending: false })
-      .limit(500)
-    const currentIds = new Set(images.map(img => img.id))
-    setAvailableImages((data || []).filter(img => !currentIds.has(img.id)))
-    // Reset filters
-    setPickerFilterFolder('all')
-    setPickerFilterScene('all')
-    setPickerFilterTags([])
+    // Reset filters and selection
+    setPickerFolders([])
+    setPickerScenes([])
+    setPickerTags([])
     setPickerMinQuality(0)
     setPickerSearch('')
     setPickerSelected(new Set())
+    setPickerLimit(15)
     setShowImagePicker(true)
+
+    // Load taxonomy (approved only)
+    fetch('/api/images/taxonomy?approvedOnly=true')
+      .then(r => r.json())
+      .then(data => {
+        setTaxFolders(data.folders || [])
+        setTaxScenes(data.scenes || [])
+        setTaxTags(data.tags || [])
+      })
+      .catch(() => {})
   }
+
+  // Re-fetch whenever filters change and picker is open
+  useEffect(() => {
+    if (!showImagePicker) return
+    const t = setTimeout(() => { fetchPickerImages() }, 250) // debounce search typing
+    return () => clearTimeout(t)
+  }, [showImagePicker, pickerFolders, pickerScenes, pickerTags, pickerMinQuality, pickerSearch, pickerLimit, fetchPickerImages])
 
   function togglePickerSelect(id: string) {
     setPickerSelected(prev => {
@@ -98,29 +142,6 @@ function EditPortfolioContent() {
     setAvailableImages(prev => prev.filter(img => !pickerSelected.has(img.id)))
     setPickerSelected(new Set())
   }
-
-  // Compute filter options from available images
-  const pickerFolders = Array.from(new Set(availableImages.map(img => img.classified_folder).filter(Boolean))).sort() as string[]
-  const pickerScenes = Array.from(new Set(availableImages.map(img => img.scene).filter(Boolean))).sort() as string[]
-  const pickerAllTags = Array.from(new Set(availableImages.flatMap(img => img.tags || []))).sort()
-
-  // Apply filters
-  const filteredPickerImages = availableImages.filter(img => {
-    if (pickerFilterFolder !== 'all' && img.classified_folder !== pickerFilterFolder) return false
-    if (pickerFilterScene !== 'all' && img.scene !== pickerFilterScene) return false
-    if (pickerMinQuality > 0 && (img.quality_score || 0) < pickerMinQuality) return false
-    if (pickerFilterTags.length > 0) {
-      const imgTags = new Set(img.tags || [])
-      if (!pickerFilterTags.every(t => imgTags.has(t))) return false
-    }
-    if (pickerSearch) {
-      const q = pickerSearch.toLowerCase()
-      const matchFilename = img.filename?.toLowerCase().includes(q)
-      const matchCaption = img.ai_caption?.toLowerCase().includes(q)
-      if (!matchFilename && !matchCaption) return false
-    }
-    return true
-  })
 
   function removeImage(imgId: string) {
     setImages(prev => prev.filter(img => img.id !== imgId))
@@ -351,12 +372,19 @@ function EditPortfolioContent() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowImagePicker(false)}>
           <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-stone-200">
+            <div className="flex items-center justify-between p-5 border-b border-stone-200">
               <div>
                 <h3 className="text-lg font-semibold text-stone-800">Add Images</h3>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Showing {filteredPickerImages.length} of {availableImages.length} approved images
-                  {pickerSelected.size > 0 && <span className="text-stone-800 font-medium"> — {pickerSelected.size} selected</span>}
+                  {pickerLoading ? (
+                    <span>Loading...</span>
+                  ) : (
+                    <>
+                      Showing {availableImages.length} of {pickerTotal} matching
+                      {' '}({pickerTotalApproved} approved total).
+                      {pickerSelected.size > 0 && <span className="text-stone-800 font-medium"> {pickerSelected.size} selected.</span>}
+                    </>
+                  )}
                 </p>
               </div>
               <button onClick={() => setShowImagePicker(false)} className="text-stone-400 hover:text-stone-600 text-xl">x</button>
@@ -364,34 +392,68 @@ function EditPortfolioContent() {
 
             {/* Filters */}
             <div className="p-4 bg-stone-50 border-b border-stone-200 space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Folder */}
-                <div className="flex items-center gap-1 text-sm">
-                  <span className="text-stone-500">Folder:</span>
-                  <select
-                    value={pickerFilterFolder}
-                    onChange={e => setPickerFilterFolder(e.target.value)}
-                    className="border border-stone-300 rounded-md px-2 py-1 text-sm bg-white"
-                  >
-                    <option value="all">All folders</option>
-                    {pickerFolders.map(f => <option key={f} value={f}>{f}</option>)}
-                  </select>
+              {/* Folders (multi-select chips) */}
+              {taxFolders.length > 0 && (
+                <div className="flex flex-wrap items-start gap-1">
+                  <span className="text-xs font-medium text-stone-500 mr-1 mt-0.5">Folders:</span>
+                  {taxFolders.map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setPickerFolders(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])}
+                      className={`px-2 py-0.5 rounded-full text-xs border transition ${
+                        pickerFolders.includes(f)
+                          ? 'bg-stone-800 text-white border-stone-800'
+                          : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
                 </div>
+              )}
 
-                {/* Scene */}
-                <div className="flex items-center gap-1 text-sm">
-                  <span className="text-stone-500">Scene:</span>
-                  <select
-                    value={pickerFilterScene}
-                    onChange={e => setPickerFilterScene(e.target.value)}
-                    className="border border-stone-300 rounded-md px-2 py-1 text-sm bg-white"
-                  >
-                    <option value="all">All scenes</option>
-                    {pickerScenes.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+              {/* Scenes (multi-select chips) */}
+              {taxScenes.length > 0 && (
+                <div className="flex flex-wrap items-start gap-1">
+                  <span className="text-xs font-medium text-stone-500 mr-1 mt-0.5">Scenes:</span>
+                  {taxScenes.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setPickerScenes(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                      className={`px-2 py-0.5 rounded-full text-xs border transition ${
+                        pickerScenes.includes(s)
+                          ? 'bg-stone-800 text-white border-stone-800'
+                          : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
+              )}
 
-                {/* Min Quality */}
+              {/* Tags (multi-select chips) */}
+              {taxTags.length > 0 && (
+                <div className="flex flex-wrap items-start gap-1">
+                  <span className="text-xs font-medium text-stone-500 mr-1 mt-0.5">Tags:</span>
+                  {taxTags.map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setPickerTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])}
+                      className={`px-2 py-0.5 rounded-full text-xs border transition ${
+                        pickerTags.includes(t)
+                          ? 'bg-stone-800 text-white border-stone-800'
+                          : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Quality + search + clear */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-stone-500">Min Quality:</span>
                   <input
@@ -401,12 +463,11 @@ function EditPortfolioContent() {
                     step="0.5"
                     value={pickerMinQuality}
                     onChange={e => setPickerMinQuality(Number(e.target.value))}
-                    className="w-20"
+                    className="w-24"
                   />
                   <span className="text-stone-700 font-medium w-6 text-right">{pickerMinQuality.toFixed(1)}</span>
                 </div>
 
-                {/* Search */}
                 <input
                   type="text"
                   placeholder="Search caption or filename..."
@@ -415,91 +476,85 @@ function EditPortfolioContent() {
                   className="flex-1 min-w-32 border border-stone-300 rounded-md px-3 py-1 text-sm"
                 />
 
-                {/* Clear filters */}
-                {(pickerFilterFolder !== 'all' || pickerFilterScene !== 'all' || pickerFilterTags.length > 0 || pickerMinQuality > 0 || pickerSearch) && (
+                {(pickerFolders.length > 0 || pickerScenes.length > 0 || pickerTags.length > 0 || pickerMinQuality > 0 || pickerSearch) && (
                   <button
                     onClick={() => {
-                      setPickerFilterFolder('all')
-                      setPickerFilterScene('all')
-                      setPickerFilterTags([])
+                      setPickerFolders([])
+                      setPickerScenes([])
+                      setPickerTags([])
                       setPickerMinQuality(0)
                       setPickerSearch('')
                     }}
                     className="text-xs text-stone-500 hover:text-stone-800 underline"
                   >
-                    Clear filters
+                    Clear all filters
                   </button>
                 )}
               </div>
-
-              {/* Tag chips */}
-              {pickerAllTags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  <span className="text-xs text-stone-500 mr-1 self-center">Tags:</span>
-                  {pickerAllTags.map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() => setPickerFilterTags(prev =>
-                        prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-                      )}
-                      className={`px-2 py-0.5 rounded-full text-xs border transition ${
-                        pickerFilterTags.includes(tag)
-                          ? 'bg-stone-800 text-white border-stone-800'
-                          : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Image grid */}
             <div className="flex-1 overflow-y-auto p-4">
-              {availableImages.length === 0 ? (
-                <p className="text-stone-400 text-center py-8">No more approved images available</p>
-              ) : filteredPickerImages.length === 0 ? (
-                <p className="text-stone-400 text-center py-8">No images match the current filters. Try clearing some filters.</p>
+              {pickerLoading ? (
+                <p className="text-stone-400 text-center py-8">Loading images...</p>
+              ) : availableImages.length === 0 ? (
+                <p className="text-stone-400 text-center py-8">
+                  {pickerTotal === 0 && pickerTotalApproved > 0
+                    ? 'No images match the current filters. Try clearing some filters.'
+                    : 'No more approved images available.'}
+                </p>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                  {filteredPickerImages.map(img => (
-                    <button
-                      key={img.id}
-                      onClick={() => togglePickerSelect(img.id)}
-                      className={`group relative aspect-square rounded-lg overflow-hidden bg-stone-100 border-2 transition ${
-                        pickerSelected.has(img.id)
-                          ? 'border-stone-800 ring-2 ring-stone-800'
-                          : 'border-stone-200 hover:border-stone-400'
-                      }`}
-                    >
-                      <img
-                        src={img.thumbnail_url || img.cdn_url || ''}
-                        alt={img.ai_caption || ''}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                      {pickerSelected.has(img.id) && (
-                        <div className="absolute top-1 left-1 w-5 h-5 bg-stone-800 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
+                <>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {availableImages.map(img => (
+                      <button
+                        key={img.id}
+                        onClick={() => togglePickerSelect(img.id)}
+                        className={`group relative aspect-square rounded-lg overflow-hidden bg-stone-100 border-2 transition ${
+                          pickerSelected.has(img.id)
+                            ? 'border-stone-800 ring-2 ring-stone-800'
+                            : 'border-stone-200 hover:border-stone-400'
+                        }`}
+                      >
+                        <img
+                          src={img.thumbnail_url || img.cdn_url || ''}
+                          alt={img.ai_caption || ''}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        {pickerSelected.has(img.id) && (
+                          <div className="absolute top-1 left-1 w-5 h-5 bg-stone-800 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                        {img.quality_score && (
+                          <span className="absolute top-1 right-1 text-[10px] px-1 py-0.5 bg-black/50 text-white rounded">
+                            {img.quality_score.toFixed(1)}
+                          </span>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
+                          <p className="text-white text-[10px] leading-tight line-clamp-2">
+                            {img.ai_caption || img.filename}
+                          </p>
                         </div>
-                      )}
-                      {img.quality_score && (
-                        <span className="absolute top-1 right-1 text-[10px] px-1 py-0.5 bg-black/50 text-white rounded">
-                          {img.quality_score.toFixed(1)}
-                        </span>
-                      )}
-                      {/* Caption on hover */}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
-                        <p className="text-white text-[10px] leading-tight line-clamp-2">
-                          {img.ai_caption || img.filename}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Load more */}
+                  {pickerHasMore && (
+                    <div className="text-center pt-4">
+                      <button
+                        onClick={() => setPickerLimit(prev => prev + 15)}
+                        className="px-4 py-2 text-sm text-stone-600 border border-stone-300 rounded-md hover:bg-stone-50"
+                      >
+                        Load 15 more ({pickerTotal - availableImages.length} remaining)
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

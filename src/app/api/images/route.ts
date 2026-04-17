@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
+import { sanitizeLabel, LIMITS } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
@@ -66,6 +67,22 @@ export async function PATCH(request: NextRequest) {
       if (details[field] !== undefined) {
         updates[field] = details[field]
       }
+    }
+
+    // Enforce character limits + sanitization on labels
+    if (typeof updates.classified_folder === 'string') {
+      updates.classified_folder = sanitizeLabel(updates.classified_folder, LIMITS.folder)
+    }
+    if (typeof updates.scene === 'string') {
+      updates.scene = sanitizeLabel(updates.scene, LIMITS.scene)
+    }
+    if (Array.isArray(updates.tags)) {
+      updates.tags = (updates.tags as string[])
+        .map(t => sanitizeLabel(t, LIMITS.tag))
+        .filter(Boolean)
+    }
+    if (typeof updates.ai_caption === 'string') {
+      updates.ai_caption = (updates.ai_caption as string).slice(0, LIMITS.caption)
     }
 
     if (Object.keys(updates).length === 0) {
