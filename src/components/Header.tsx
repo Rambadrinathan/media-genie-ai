@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
   variant: 'admin' | 'public'
-  page?: 'review' | 'portfolios'
+  page?: 'review' | 'portfolios' | 'settings'
 }
 
 export function Header({ variant, page }: HeaderProps) {
@@ -40,7 +40,7 @@ export function Header({ variant, page }: HeaderProps) {
         <div className="flex items-center gap-3">
           <a href="/" className="text-xl font-semibold text-stone-800">Media Genie AI</a>
           <span className="text-sm text-stone-500">
-            {page === 'review' ? 'Image Management' : 'Portfolios'}
+            {page === 'review' ? 'Image Management' : page === 'settings' ? 'Settings' : 'Portfolios'}
           </span>
         </div>
         <nav className="flex items-center gap-4 text-sm">
@@ -55,6 +55,12 @@ export function Header({ variant, page }: HeaderProps) {
             className={page === 'portfolios' ? 'text-stone-800 font-medium' : 'text-stone-500 hover:text-stone-800'}
           >
             Portfolios
+          </a>
+          <a
+            href="/settings"
+            className={page === 'settings' ? 'text-stone-800 font-medium' : 'text-stone-500 hover:text-stone-800'}
+          >
+            Settings
           </a>
           <button
             onClick={handleLock}

@@ -10,10 +10,13 @@ import { ImageUploader } from '@/components/ImageUploader'
 import { sanitizeLabel, LIMITS } from '@/lib/validation'
 import type { ImageRecord } from '@/lib/types'
 
+type QualityOp = 'gte' | 'eq' | 'lt' | 'gt'
+
 type FilterState = {
   status: string
   tags: string[]
-  minQuality: number
+  qualityOp: QualityOp
+  qualityValue: number
   search: string
 }
 
@@ -34,7 +37,8 @@ function ReviewContent() {
   const [filters, setFilters] = useState<FilterState>({
     status: 'pending_approval',
     tags: [],
-    minQuality: 0,
+    qualityOp: 'gte',
+    qualityValue: 0,
     search: '',
   })
   const [allTags, setAllTags] = useState<string[]>([])
@@ -67,8 +71,15 @@ function ReviewContent() {
     if (filters.status !== 'all') {
       query = query.eq('status', filters.status)
     }
-    if (filters.minQuality > 0) {
-      query = query.gte('quality_score', filters.minQuality)
+    if (filters.qualityOp === 'eq') {
+      query = query.eq('quality_score', filters.qualityValue)
+    } else if (filters.qualityOp === 'lt') {
+      query = query.lt('quality_score', filters.qualityValue)
+    } else if (filters.qualityOp === 'gt') {
+      query = query.gt('quality_score', filters.qualityValue)
+    } else if (filters.qualityValue > 0) {
+      // 'gte' default — only apply when value > 0 so 0 means "show all"
+      query = query.gte('quality_score', filters.qualityValue)
     }
     if (filters.tags.length > 0) {
       query = query.overlaps('tags', filters.tags)
@@ -289,17 +300,28 @@ function ReviewContent() {
             {!isTrashView && (
               <>
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-stone-500">Min Quality:</span>
+                  <span className="text-stone-500">Quality</span>
+                  <select
+                    value={filters.qualityOp}
+                    onChange={e => setFilters(f => ({ ...f, qualityOp: e.target.value as QualityOp }))}
+                    className="border border-stone-300 rounded-md px-2 py-1 text-sm bg-white"
+                    title="Quality comparison operator"
+                  >
+                    <option value="gte">at least</option>
+                    <option value="eq">exactly</option>
+                    <option value="lt">less than</option>
+                    <option value="gt">more than</option>
+                  </select>
                   <input
                     type="range"
                     min="0"
                     max="10"
                     step="1"
-                    value={filters.minQuality}
-                    onChange={e => setFilters(f => ({ ...f, minQuality: Number(e.target.value) }))}
-                    className="w-24"
+                    value={filters.qualityValue}
+                    onChange={e => setFilters(f => ({ ...f, qualityValue: Number(e.target.value) }))}
+                    className="w-20"
                   />
-                  <span className="text-stone-700 font-medium w-4">{filters.minQuality}</span>
+                  <span className="text-stone-700 font-medium w-4 text-right">{filters.qualityValue}</span>
                 </div>
 
                 <input
