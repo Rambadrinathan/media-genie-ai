@@ -54,11 +54,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'ids required' }, { status: 400 })
   }
 
-  // Update details action — edit metadata for a single image
+  // Update details action — edit metadata for one or many images
   if (action === 'update_details') {
     const { id, details } = body
-    if (!id || !details) {
-      return NextResponse.json({ error: 'id and details required' }, { status: 400 })
+    const targetIds: string[] = Array.isArray(ids) && ids.length > 0 ? ids : id ? [id] : []
+    if (targetIds.length === 0 || !details) {
+      return NextResponse.json({ error: 'ids (or id) and details required' }, { status: 400 })
     }
 
     const allowedFields = ['ai_caption', 'tags', 'quality_score', 'scene', 'classified_folder']
@@ -92,14 +93,14 @@ export async function PATCH(request: NextRequest) {
     const { error } = await supabase
       .from('images')
       .update(updates)
-      .eq('id', id)
+      .in('id', targetIds)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    await logAudit('edit_details', 'image', [id], { fields: Object.keys(updates) })
-    return NextResponse.json({ updated: true })
+    await logAudit('edit_details', 'image', targetIds, { fields: Object.keys(updates) })
+    return NextResponse.json({ updated: targetIds.length })
   }
 
   // Restore action — undo soft delete

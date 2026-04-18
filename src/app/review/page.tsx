@@ -15,10 +15,14 @@ type QualityOp = 'gte' | 'eq' | 'lt' | 'gt'
 type FilterState = {
   status: string
   tags: string[]
+  folders: string[]
+  scenes: string[]
   qualityOp: QualityOp
   qualityValue: number
   search: string
 }
+
+type BulkEditField = 'quality' | 'folder' | 'scene' | null
 
 export default function ReviewPage() {
   return (
@@ -37,11 +41,16 @@ function ReviewContent() {
   const [filters, setFilters] = useState<FilterState>({
     status: 'pending_approval',
     tags: [],
+    folders: [],
+    scenes: [],
     qualityOp: 'gte',
     qualityValue: 0,
     search: '',
   })
   const [allTags, setAllTags] = useState<string[]>([])
+  const [allFolders, setAllFolders] = useState<string[]>([])
+  const [allScenes, setAllScenes] = useState<string[]>([])
+  const [bulkEdit, setBulkEdit] = useState<BulkEditField>(null)
   const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, deleted: 0 })
   const [showUploader, setShowUploader] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{
@@ -84,6 +93,12 @@ function ReviewContent() {
     if (filters.tags.length > 0) {
       query = query.overlaps('tags', filters.tags)
     }
+    if (filters.folders.length > 0) {
+      query = query.in('classified_folder', filters.folders)
+    }
+    if (filters.scenes.length > 0) {
+      query = query.in('scene', filters.scenes)
+    }
     if (filters.search) {
       query = query.or(`filename.ilike.%${filters.search}%,ai_caption.ilike.%${filters.search}%`)
     }
@@ -114,20 +129,20 @@ function ReviewContent() {
     })
   }, [])
 
-  const fetchTags = useCallback(async () => {
-    const { data } = await supabase.from('images').select('tags').is('deleted_at', null)
-    if (data) {
-      const tagSet = new Set<string>()
-      data.forEach(row => (row.tags || []).forEach((t: string) => tagSet.add(t)))
-      setAllTags([...tagSet].sort())
-    }
+  const fetchTaxonomy = useCallback(async () => {
+    const res = await fetch('/api/images/taxonomy')
+    if (!res.ok) return
+    const json = await res.json()
+    setAllTags(json.tags || [])
+    setAllFolders(json.folders || [])
+    setAllScenes(json.scenes || [])
   }, [])
 
   useEffect(() => {
     fetchImages()
     fetchStats()
-    fetchTags()
-  }, [fetchImages, fetchStats, fetchTags])
+    fetchTaxonomy()
+  }, [fetchImages, fetchStats, fetchTaxonomy])
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -186,7 +201,7 @@ function ReviewContent() {
       })
       fetchImages()
       fetchStats()
-      fetchTags()
+      fetchTaxonomy()
     }
   }
 
@@ -200,7 +215,7 @@ function ReviewContent() {
       showToast(`${ids.length} image${ids.length > 1 ? 's' : ''} restored`, 'success')
       fetchImages()
       fetchStats()
-      fetchTags()
+      fetchTaxonomy()
     }
   }
 
@@ -277,7 +292,7 @@ function ReviewContent() {
             onComplete={() => {
               fetchImages()
               fetchStats()
-              fetchTags()
+              fetchTaxonomy()
             }}
             onClose={() => setShowUploader(false)}
           />
@@ -332,31 +347,104 @@ function ReviewContent() {
                   onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
                 />
 
-                <div className="flex flex-wrap gap-1">
-                  {allTags.slice(0, 10).map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() =>
-                        setFilters(f => ({
-                          ...f,
-                          tags: f.tags.includes(tag)
-                            ? f.tags.filter(t => t !== tag)
-                            : [...f.tags, tag],
-                        }))
-                      }
-                      className={`px-2 py-0.5 rounded-full text-xs border transition ${
-                        filters.tags.includes(tag)
-                          ? 'bg-stone-800 text-white border-stone-800'
-                          : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
               </>
             )}
           </div>
+
+          {/* Folder / Scene / Tag chip filters — only on non-trash view */}
+          {!isTrashView && (allFolders.length > 0 || allScenes.length > 0 || allTags.length > 0) && (
+            <div className="mt-3 pt-3 border-t border-stone-100 space-y-2">
+              {allFolders.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-stone-500 font-medium min-w-16 pt-1">Folders:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {allFolders.map(folder => (
+                      <button
+                        key={folder}
+                        onClick={() =>
+                          setFilters(f => ({
+                            ...f,
+                            folders: f.folders.includes(folder)
+                              ? f.folders.filter(x => x !== folder)
+                              : [...f.folders, folder],
+                          }))
+                        }
+                        className={`px-2 py-0.5 rounded-full text-xs border transition ${
+                          filters.folders.includes(folder)
+                            ? 'bg-stone-800 text-white border-stone-800'
+                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                        }`}
+                      >
+                        {folder}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {allScenes.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-stone-500 font-medium min-w-16 pt-1">Scenes:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {allScenes.map(scene => (
+                      <button
+                        key={scene}
+                        onClick={() =>
+                          setFilters(f => ({
+                            ...f,
+                            scenes: f.scenes.includes(scene)
+                              ? f.scenes.filter(x => x !== scene)
+                              : [...f.scenes, scene],
+                          }))
+                        }
+                        className={`px-2 py-0.5 rounded-full text-xs border transition ${
+                          filters.scenes.includes(scene)
+                            ? 'bg-stone-800 text-white border-stone-800'
+                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                        }`}
+                      >
+                        {scene}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {allTags.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-stone-500 font-medium min-w-16 pt-1">Tags:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {allTags.slice(0, 20).map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() =>
+                          setFilters(f => ({
+                            ...f,
+                            tags: f.tags.includes(tag)
+                              ? f.tags.filter(t => t !== tag)
+                              : [...f.tags, tag],
+                          }))
+                        }
+                        className={`px-2 py-0.5 rounded-full text-xs border transition ${
+                          filters.tags.includes(tag)
+                            ? 'bg-stone-800 text-white border-stone-800'
+                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(filters.folders.length > 0 || filters.scenes.length > 0 || filters.tags.length > 0) && (
+                <button
+                  onClick={() => setFilters(f => ({ ...f, folders: [], scenes: [], tags: [] }))}
+                  className="text-xs text-stone-500 hover:text-stone-800 underline"
+                >
+                  Clear chip filters
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bulk Actions */}
@@ -377,13 +465,35 @@ function ReviewContent() {
                     onClick={bulkApprove}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
                   >
-                    Approve Selected
+                    Approve
                   </button>
                   <button
                     onClick={bulkReject}
                     className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
                   >
-                    Reject Selected
+                    Reject
+                  </button>
+                  <div className="w-px bg-stone-600 mx-1" />
+                  <button
+                    onClick={() => setBulkEdit('quality')}
+                    className="bg-stone-700 hover:bg-stone-600 text-white px-3 py-1.5 rounded-md text-sm font-medium"
+                    title="Set quality score for all selected"
+                  >
+                    Set Quality
+                  </button>
+                  <button
+                    onClick={() => setBulkEdit('folder')}
+                    className="bg-stone-700 hover:bg-stone-600 text-white px-3 py-1.5 rounded-md text-sm font-medium"
+                    title="Set folder for all selected"
+                  >
+                    Set Folder
+                  </button>
+                  <button
+                    onClick={() => setBulkEdit('scene')}
+                    className="bg-stone-700 hover:bg-stone-600 text-white px-3 py-1.5 rounded-md text-sm font-medium"
+                    title="Set scene for all selected"
+                  >
+                    Set Scene
                   </button>
                 </>
               )}
@@ -518,7 +628,7 @@ function ReviewContent() {
           onApprove={() => approveSingleImage(modalImage.id)}
           onReject={() => rejectSingleImage(modalImage.id)}
           onRestore={() => { restoreImages([modalImage.id]); setModalImage(null) }}
-          onSaved={() => { fetchImages(); fetchTags() }}
+          onSaved={() => { fetchImages(); fetchTaxonomy() }}
           showToast={showToast}
         />
       )}
@@ -538,6 +648,36 @@ function ReviewContent() {
           thumbnails={confirmAction.thumbnails.slice(0, 12)}
           onConfirm={handleConfirm}
           onCancel={() => setConfirmAction(null)}
+        />
+      )}
+
+      {/* Bulk Edit Modal */}
+      {bulkEdit && (
+        <BulkEditModal
+          field={bulkEdit}
+          selectedCount={selected.size}
+          allFolders={allFolders}
+          allScenes={allScenes}
+          onClose={() => setBulkEdit(null)}
+          onApply={async (details) => {
+            const ids = [...selected]
+            const res = await fetch('/api/images', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids, action: 'update_details', details }),
+            })
+            if (res.ok) {
+              const result = await res.json()
+              showToast(`Updated ${result.updated || ids.length} image${ids.length > 1 ? 's' : ''}`, 'success')
+              setBulkEdit(null)
+              setSelected(new Set())
+              fetchImages()
+              fetchTaxonomy()
+            } else {
+              const err = await res.json()
+              showToast(err.error || 'Bulk update failed', 'error')
+            }
+          }}
         />
       )}
     </div>
@@ -1005,6 +1145,189 @@ function ImageDetailModal({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface BulkEditModalProps {
+  field: 'quality' | 'folder' | 'scene'
+  selectedCount: number
+  allFolders: string[]
+  allScenes: string[]
+  onClose: () => void
+  onApply: (details: Record<string, unknown>) => Promise<void>
+}
+
+function BulkEditModal({ field, selectedCount, allFolders, allScenes, onClose, onApply }: BulkEditModalProps) {
+  const [quality, setQuality] = useState(5)
+  const [folder, setFolder] = useState('')
+  const [scene, setScene] = useState('')
+  const [newFolder, setNewFolder] = useState('')
+  const [newScene, setNewScene] = useState('')
+  const [addingNew, setAddingNew] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  async function handleApply() {
+    setSaving(true)
+    if (field === 'quality') {
+      await onApply({ quality_score: quality })
+    } else if (field === 'folder') {
+      const value = addingNew ? sanitizeLabel(newFolder, LIMITS.folder) : folder
+      if (!value) { setSaving(false); return }
+      await onApply({ classified_folder: value })
+    } else {
+      const value = addingNew ? sanitizeLabel(newScene, LIMITS.scene) : scene
+      if (!value) { setSaving(false); return }
+      await onApply({ scene: value })
+    }
+    setSaving(false)
+  }
+
+  const title = field === 'quality' ? 'Set Quality Score' : field === 'folder' ? 'Set Folder' : 'Set Scene'
+  const helpText = `This will apply the same value to all ${selectedCount} selected image${selectedCount > 1 ? 's' : ''}, overwriting any existing value.`
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl max-w-md w-full shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="p-6">
+          <h3 className="text-lg font-semibold text-stone-800 mb-1">{title}</h3>
+          <p className="text-xs text-stone-500 mb-4">{helpText}</p>
+
+          {field === 'quality' && (
+            <div className="mb-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="1"
+                  value={quality}
+                  onChange={e => setQuality(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-2xl font-bold text-stone-900 w-10 text-right">{quality}</span>
+                <span className="text-xs text-stone-500">/ 10</span>
+              </div>
+            </div>
+          )}
+
+          {field === 'folder' && (
+            <div className="mb-4">
+              {!addingNew && (
+                <>
+                  <div className="flex flex-wrap gap-1.5 mb-3 max-h-40 overflow-y-auto">
+                    {allFolders.map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setFolder(f)}
+                        className={`px-2.5 py-1 rounded-full text-xs border transition ${
+                          folder === f
+                            ? 'bg-stone-800 text-white border-stone-800'
+                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                    {allFolders.length === 0 && (
+                      <span className="text-xs text-stone-400">No folders yet.</span>
+                    )}
+                  </div>
+                  <button onClick={() => setAddingNew(true)} className="text-xs text-stone-600 hover:text-stone-900 underline">
+                    + Add new folder
+                  </button>
+                </>
+              )}
+              {addingNew && (
+                <div>
+                  <input
+                    type="text"
+                    value={newFolder}
+                    onChange={e => setNewFolder(e.target.value.slice(0, LIMITS.folder))}
+                    placeholder="new-folder-name"
+                    className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm mb-1"
+                    autoFocus
+                    maxLength={LIMITS.folder}
+                  />
+                  <p className="text-xs text-stone-400 mb-2">Lowercase, hyphens only. Max {LIMITS.folder} chars.</p>
+                  <button onClick={() => setAddingNew(false)} className="text-xs text-stone-500 hover:text-stone-800 underline">
+                    Pick existing instead
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {field === 'scene' && (
+            <div className="mb-4">
+              {!addingNew && (
+                <>
+                  <div className="flex flex-wrap gap-1.5 mb-3 max-h-40 overflow-y-auto">
+                    {allScenes.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setScene(s)}
+                        className={`px-2.5 py-1 rounded-full text-xs border transition ${
+                          scene === s
+                            ? 'bg-stone-800 text-white border-stone-800'
+                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                    {allScenes.length === 0 && (
+                      <span className="text-xs text-stone-400">No scenes yet.</span>
+                    )}
+                  </div>
+                  <button onClick={() => setAddingNew(true)} className="text-xs text-stone-600 hover:text-stone-900 underline">
+                    + Add new scene
+                  </button>
+                </>
+              )}
+              {addingNew && (
+                <div>
+                  <input
+                    type="text"
+                    value={newScene}
+                    onChange={e => setNewScene(e.target.value.slice(0, LIMITS.scene))}
+                    placeholder="new-scene-name"
+                    className="w-full border border-stone-300 rounded-md px-3 py-2 text-sm mb-1"
+                    autoFocus
+                    maxLength={LIMITS.scene}
+                  />
+                  <p className="text-xs text-stone-400 mb-2">Lowercase, hyphens only. Max {LIMITS.scene} chars.</p>
+                  <button onClick={() => setAddingNew(false)} className="text-xs text-stone-500 hover:text-stone-800 underline">
+                    Pick existing instead
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-stone-600 hover:text-stone-800 rounded-md border border-stone-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleApply}
+              disabled={
+                saving ||
+                (field === 'folder' && !addingNew && !folder) ||
+                (field === 'folder' && addingNew && !newFolder.trim()) ||
+                (field === 'scene' && !addingNew && !scene) ||
+                (field === 'scene' && addingNew && !newScene.trim())
+              }
+              className="px-4 py-2 text-sm text-white rounded-md font-medium bg-stone-800 hover:bg-stone-900 disabled:bg-stone-300"
+            >
+              {saving ? 'Applying...' : `Apply to ${selectedCount}`}
+            </button>
           </div>
         </div>
       </div>
