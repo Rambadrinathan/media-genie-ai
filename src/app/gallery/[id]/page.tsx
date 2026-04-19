@@ -6,11 +6,23 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
+interface GalleryImage {
+  id: string
+  cdn_url: string | null
+  thumbnail_url: string | null
+  ai_caption: string | null
+  classified_folder: string | null
+  scene: string | null
+  tags: string[] | null
+  filename: string | null
+}
+
+const PUB_SPANS = [8, 4, 4, 4, 4, 7, 5, 6, 6]
+
 export default async function GalleryPage({ params }: Props) {
   const { id } = await params
   const supabase = createServiceClient()
 
-  // Fetch portfolio
   const { data: portfolio } = await supabase
     .from('portfolios')
     .select('*')
@@ -21,7 +33,6 @@ export default async function GalleryPage({ params }: Props) {
     notFound()
   }
 
-  // Fetch images in order
   const { data: allImages } = await supabase
     .from('images')
     .select('*')
@@ -31,127 +42,165 @@ export default async function GalleryPage({ params }: Props) {
     notFound()
   }
 
-  // Sort by portfolio order
   const imageMap = new Map(allImages.map(img => [img.id, img]))
-  const images = (portfolio.image_ids || [])
+  const images: GalleryImage[] = (portfolio.image_ids || [])
     .map((imgId: string) => imageMap.get(imgId))
-    .filter(Boolean)
+    .filter(Boolean) as GalleryImage[]
 
-  const captions = portfolio.captions || {}
-  const coverImage = images.find((img: { id: string }) => img.id === portfolio.cover_image_id) || images[0]
+  const captions: Record<string, string> = portfolio.captions || {}
+  const coverImage = images.find(img => img.id === portfolio.cover_image_id) || images[0]
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
   const portfolioUrl = `${appUrl}/gallery/${id}`
 
+  // Split title so we can italicize last ~third
+  const titleWords = portfolio.title.split(' ')
+  const splitAt = Math.max(1, titleWords.length - Math.max(1, Math.floor(titleWords.length / 3)))
+  const titleLead = titleWords.slice(0, splitAt).join(' ')
+  const titleTail = titleWords.slice(splitAt).join(' ')
+
   return (
-    <div className="min-h-screen bg-stone-50">
-      {/* Navigation bar */}
-      <GalleryNav title={portfolio.title} url={portfolioUrl} portfolioId={id} />
+    <div className="min-h-screen" style={{ background: '#fff', color: 'var(--ink)' }}>
+      {/* Public header */}
+      <header
+        className="sticky top-0 z-30 flex items-center justify-between px-8 py-4"
+        style={{ background: '#fff', borderBottom: '1px solid var(--line)' }}
+      >
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, whiteSpace: 'nowrap' }}>
+          KarmYog Vatika Gardens
+        </div>
+        <GalleryNav title={portfolio.title} url={portfolioUrl} portfolioId={id} />
+      </header>
 
       {/* Hero */}
-      <div className="relative h-[60vh] min-h-96 bg-stone-900 flex items-end">
+      <div
+        className="relative flex items-end"
+        style={{ minHeight: 560, background: 'var(--sand)', overflow: 'hidden' }}
+      >
         {coverImage?.cdn_url && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={coverImage.cdn_url}
             alt={captions[coverImage.id] || coverImage.ai_caption || ''}
-            className="absolute inset-0 w-full h-full object-cover opacity-60"
+            className="absolute inset-0 w-full h-full object-cover"
           />
         )}
-        <div className="relative z-10 max-w-5xl mx-auto px-6 py-12 w-full">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
-            {portfolio.title}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55))' }}
+        />
+        <div className="relative z-10 px-12 py-10" style={{ color: '#fff', maxWidth: 720 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)' }}>
+            KarmYog Vatika · Portfolio
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 48, lineHeight: 1.1, margin: '10px 0 14px', letterSpacing: '-0.01em' }}>
+            {titleLead}{' '}
+            {titleTail && (
+              <em style={{ fontStyle: 'italic', color: 'var(--accent-soft)' }}>{titleTail}.</em>
+            )}
           </h1>
-          <p className="text-lg text-white/70 mt-3">KarmYog Vatika Gardens</p>
+          {portfolio.prompt && (
+            <p style={{ fontSize: 15, opacity: 0.85, maxWidth: 500 }}>&ldquo;{portfolio.prompt}&rdquo;</p>
+          )}
         </div>
       </div>
 
-      {/* Description */}
-      {portfolio.prompt && (
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <p className="text-stone-600 text-lg leading-relaxed italic">
-            &ldquo;{portfolio.prompt}&rdquo;
+      {/* Intro + grid */}
+      <section className="mx-auto px-10 py-12" style={{ maxWidth: 1100 }}>
+        <div className="grid gap-12 mb-12" style={{ gridTemplateColumns: '2fr 3fr' }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+              Prepared for · shared viewer
+            </div>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 34, lineHeight: 1.1, letterSpacing: '-0.005em', margin: '8px 0 0' }}>
+              {images.length} selected works, annotated.
+            </h2>
+          </div>
+          <p style={{ color: 'var(--ink-soft)', fontSize: 16, lineHeight: 1.65, margin: 0 }}>
+            This portfolio was curated with Media Genie AI. Every caption is editable by the team. Published URLs are shareable without sign-in; scroll through, or save the link.
           </p>
         </div>
-      )}
 
-      {/* Gallery Grid */}
-      <div className="max-w-5xl mx-auto px-6 pb-16">
-        <div className="space-y-12">
-          {images.map((img: { id: string; cdn_url: string; ai_caption: string; tags: string[]; dominant_colors: string[] }, index: number) => {
-            const caption = captions[img.id] || img.ai_caption
-            const isWide = index === 0 || index % 3 === 0
-
+        <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(12, 1fr)' }}>
+          {images.map((img, i) => {
+            const caption = captions[img.id] || img.ai_caption || ''
+            const span = PUB_SPANS[i % PUB_SPANS.length]
             return (
-              <div key={img.id} className={isWide ? '' : 'grid grid-cols-1 sm:grid-cols-2 gap-6'}>
-                {isWide ? (
-                  <div>
-                    <div className="rounded-xl overflow-hidden shadow-lg">
-                      <img
-                        src={img.cdn_url}
-                        alt={caption || ''}
-                        className="w-full h-auto"
-                        loading="lazy"
-                      />
-                    </div>
-                    {caption && (
-                      <p className="mt-3 text-stone-600 text-sm leading-relaxed max-w-2xl">
-                        {caption}
-                      </p>
+              <figure
+                key={img.id}
+                style={{ gridColumn: `span ${span}`, borderRadius: 4, overflow: 'hidden', margin: 0 }}
+              >
+                <div style={{ background: 'var(--sand-2)', overflow: 'hidden' }}>
+                  {img.cdn_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={img.cdn_url}
+                      alt={caption}
+                      className="w-full h-auto block"
+                      style={{ aspectRatio: '4/3', objectFit: 'cover' }}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div style={{ aspectRatio: '4/3', background: 'var(--sand-2)' }} />
+                  )}
+                </div>
+                {caption && (
+                  <figcaption
+                    style={{ fontSize: 13, color: 'var(--muted)', marginTop: 10, fontStyle: 'italic', lineHeight: 1.5 }}
+                  >
+                    {img.classified_folder && (
+                      <b style={{ fontStyle: 'normal', fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--ink)', display: 'block', marginBottom: 2, fontWeight: 400 }}>
+                        {img.classified_folder.replace(/-/g, ' ')}
+                      </b>
                     )}
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <div className="rounded-xl overflow-hidden shadow-lg">
-                        <img
-                          src={img.cdn_url}
-                          alt={caption || ''}
-                          className="w-full h-auto"
-                          loading="lazy"
-                        />
-                      </div>
-                      {caption && (
-                        <p className="mt-3 text-stone-600 text-sm leading-relaxed">
-                          {caption}
-                        </p>
-                      )}
-                    </div>
-                    {images[index + 1] && (
-                      <div>
-                        <div className="rounded-xl overflow-hidden shadow-lg">
-                          <img
-                            src={images[index + 1].cdn_url}
-                            alt={captions[images[index + 1].id] || images[index + 1].ai_caption || ''}
-                            className="w-full h-auto"
-                            loading="lazy"
-                          />
-                        </div>
-                        {(captions[images[index + 1].id] || images[index + 1].ai_caption) && (
-                          <p className="mt-3 text-stone-600 text-sm leading-relaxed">
-                            {captions[images[index + 1].id] || images[index + 1].ai_caption}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </>
+                    {caption}
+                  </figcaption>
                 )}
-              </div>
+              </figure>
             )
           })}
         </div>
-      </div>
+
+        <div
+          className="mt-16 pt-8 flex justify-between items-baseline"
+          style={{ borderTop: '1px solid var(--line)' }}
+        >
+          <div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+              Next step
+            </div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, marginTop: 6 }}>
+              Reach out — we&apos;ll pick up from here.
+            </div>
+            <div style={{ color: 'var(--muted)', marginTop: 4 }}>
+              Share this link with anyone. No sign-in required.
+            </div>
+          </div>
+          <button
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 13,
+              fontWeight: 500,
+              padding: '9px 16px',
+              borderRadius: 8,
+              border: '1px solid var(--accent)',
+              background: 'var(--accent)',
+              color: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            Contact us →
+          </button>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-stone-200 bg-white py-8">
-        <div className="max-w-5xl mx-auto px-6 text-center">
-          <p className="text-stone-800 font-semibold">KarmYog Vatika Gardens</p>
-          <p className="text-stone-400 text-sm mt-1">
-            IIT Kharagpur Research Park, New Town, Kolkata
-          </p>
-          <p className="text-stone-300 text-xs mt-3">
-            ky21c.org
-          </p>
-        </div>
+      <footer
+        className="flex justify-between"
+        style={{ borderTop: '1px solid var(--line)', padding: '24px 32px', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)' }}
+      >
+        <span>KarmYog Vatika Gardens · IIT Kharagpur Research Park</span>
+        <span>Portfolio generated · Media Genie AI</span>
       </footer>
     </div>
   )
