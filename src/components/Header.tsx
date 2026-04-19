@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { clearAdminSession } from './AdminGate'
 
 interface HeaderProps {
@@ -25,13 +26,13 @@ export function Header({ variant, page }: HeaderProps) {
         className="sticky top-0 z-20 flex items-center justify-between bg-white px-8 py-4"
         style={{ borderBottom: '1px solid var(--line)' }}
       >
-        <a href="/" className="whitespace-nowrap" style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--ink)' }}>
+        <Link href="/" className="whitespace-nowrap" style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--ink)', textDecoration: 'none' }}>
           KarmYog Vatika Gardens
-        </a>
+        </Link>
         <nav className="flex gap-4 text-[13px]" style={{ color: 'var(--muted)' }}>
-          <a href="/portfolio" className="hover:text-[var(--ink)]" style={{ color: 'var(--muted)' }}>
+          <Link href="/portfolio" className="hover:text-[var(--ink)]" style={{ color: 'var(--muted)', textDecoration: 'none' }}>
             All portfolios
-          </a>
+          </Link>
         </nav>
       </header>
     )
@@ -57,7 +58,7 @@ export function Header({ variant, page }: HeaderProps) {
             boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)',
           }}
         />
-        <a
+        <Link
           href="/"
           style={{
             fontFamily: 'var(--font-serif)',
@@ -69,7 +70,7 @@ export function Header({ variant, page }: HeaderProps) {
           }}
         >
           Media Genie AI
-        </a>
+        </Link>
         {sectionLabel && (
           <span
             className="pl-[10px]"
@@ -129,7 +130,7 @@ export function Header({ variant, page }: HeaderProps) {
 
 function NavLink({ href, active, children }: { href: string; active?: boolean; children: React.ReactNode }) {
   return (
-    <a
+    <Link
       href={href}
       className="transition-all"
       style={{
@@ -148,6 +149,6 @@ function NavLink({ href, active, children }: { href: string; active?: boolean; c
       }}
     >
       {children}
-    </a>
+    </Link>
   )
 }
