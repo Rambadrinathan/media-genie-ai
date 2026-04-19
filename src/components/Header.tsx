@@ -1,16 +1,19 @@
 'use client'
 
 import { clearAdminSession } from './AdminGate'
-import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
   variant: 'admin' | 'public'
   page?: 'review' | 'portfolios' | 'settings'
 }
 
-export function Header({ variant, page }: HeaderProps) {
-  const router = useRouter()
+const SECTION_LABELS: Record<NonNullable<HeaderProps['page']>, string> = {
+  review: 'Image Management',
+  portfolios: 'Portfolios',
+  settings: 'Settings',
+}
 
+export function Header({ variant, page }: HeaderProps) {
   function handleLock() {
     clearAdminSession()
     window.location.href = '/review'
@@ -18,59 +21,133 @@ export function Header({ variant, page }: HeaderProps) {
 
   if (variant === 'public') {
     return (
-      <header className="bg-white/90 backdrop-blur border-b border-stone-200 sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
-          <a href="/" className="text-xl font-semibold text-stone-800">
-            KarmYog Vatika Gardens
+      <header
+        className="sticky top-0 z-20 flex items-center justify-between bg-white px-8 py-4"
+        style={{ borderBottom: '1px solid var(--line)' }}
+      >
+        <a href="/" className="whitespace-nowrap" style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--ink)' }}>
+          KarmYog Vatika Gardens
+        </a>
+        <nav className="flex gap-4 text-[13px]" style={{ color: 'var(--muted)' }}>
+          <a href="/portfolio" className="hover:text-[var(--ink)]" style={{ color: 'var(--muted)' }}>
+            All portfolios
           </a>
-          <a
-            href="/portfolio"
-            className="text-sm text-stone-500 hover:text-stone-800"
-          >
-            All Portfolios
-          </a>
-        </div>
+        </nav>
       </header>
     )
   }
 
+  const sectionLabel = page ? SECTION_LABELS[page] : ''
+
   return (
-    <header className="bg-white border-b border-stone-200 sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <a href="/" className="text-xl font-semibold text-stone-800">Media Genie AI</a>
-          <span className="text-sm text-stone-500">
-            {page === 'review' ? 'Image Management' : page === 'settings' ? 'Settings' : 'Portfolios'}
+    <header
+      className="sticky top-0 z-20 flex items-center justify-between px-7 py-[14px]"
+      style={{ background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}
+    >
+      <div className="flex items-baseline gap-[10px]">
+        <div
+          className="self-center"
+          aria-hidden="true"
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle at 35% 35%, #d68966, var(--accent) 60%, #7d5a3c 100%)',
+            boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)',
+          }}
+        />
+        <a
+          href="/"
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 22,
+            lineHeight: 1,
+            color: 'var(--ink)',
+            letterSpacing: '-0.005em',
+            textDecoration: 'none',
+          }}
+        >
+          Media Genie AI
+        </a>
+        {sectionLabel && (
+          <span
+            className="pl-[10px]"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              textTransform: 'uppercase',
+              letterSpacing: '0.16em',
+              color: 'var(--muted)',
+              borderLeft: '1px solid var(--line)',
+            }}
+          >
+            {sectionLabel}
           </span>
-        </div>
-        <nav className="flex items-center gap-4 text-sm">
-          <a
-            href="/review"
-            className={page === 'review' ? 'text-stone-800 font-medium' : 'text-stone-500 hover:text-stone-800'}
-          >
-            Review
-          </a>
-          <a
-            href="/portfolio"
-            className={page === 'portfolios' ? 'text-stone-800 font-medium' : 'text-stone-500 hover:text-stone-800'}
-          >
-            Portfolios
-          </a>
-          <a
-            href="/settings"
-            className={page === 'settings' ? 'text-stone-800 font-medium' : 'text-stone-500 hover:text-stone-800'}
-          >
-            Settings
-          </a>
-          <button
-            onClick={handleLock}
-            className="ml-2 px-2 py-1 text-xs text-stone-400 hover:text-stone-600 border border-stone-200 rounded"
-            title="Lock admin access"
-          >
-            Lock
-          </button>
-        </nav>
+        )}
       </div>
+
+      <nav className="flex items-center gap-1">
+        <NavLink href="/review" active={page === 'review'}>
+          Review
+        </NavLink>
+        <NavLink href="/portfolio" active={page === 'portfolios'}>
+          Portfolios
+        </NavLink>
+        <NavLink href="/settings" active={page === 'settings'}>
+          Settings
+        </NavLink>
+        <button
+          onClick={handleLock}
+          className="ml-[10px] cursor-pointer"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            background: 'transparent',
+            border: '1px solid var(--line)',
+            padding: '6px 10px',
+            borderRadius: 6,
+            color: 'var(--muted)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--ink)'
+            e.currentTarget.style.color = 'var(--ink)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--line)'
+            e.currentTarget.style.color = 'var(--muted)'
+          }}
+        >
+          ◆ Lock
+        </button>
+      </nav>
     </header>
+  )
+}
+
+function NavLink({ href, active, children }: { href: string; active?: boolean; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      className="transition-all"
+      style={{
+        color: active ? 'var(--ink)' : 'var(--muted)',
+        background: active ? 'var(--sand)' : 'transparent',
+        textDecoration: 'none',
+        padding: '6px 12px',
+        borderRadius: 999,
+        fontSize: 13,
+      }}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.color = 'var(--ink)'
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.color = 'var(--muted)'
+      }}
+    >
+      {children}
+    </a>
   )
 }
