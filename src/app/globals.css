@@ -1,31 +1,64 @@
 @import "tailwindcss";
 
+/* Direction A — Editorial Vatika tokens */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #f7f1e3;
+  --sand:  #ece7dc;
+  --sand-2:#e3dcc9;
+  --ink:   #1f1d18;
+  --ink-soft:#45413a;
+  --muted: #6b6456;
+  --line:  #d8d1c1;
+  --line-soft:#ebe5d4;
+  --bark:  #7d5a3c;
+  --accent: #c07856;
+  --accent-soft:#ead8ca;
+  --leaf:  #5a6b3e;
+  --leaf-soft:#d8dfc8;
+  --warn:  #b97a1a;
+  --danger:#a24b32;
+  --radius: 10px;
+  --radius-lg: 14px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-paper: var(--paper);
+  --color-sand: var(--sand);
+  --color-sand-2: var(--sand-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-bark: var(--bark);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-leaf: var(--leaf);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --font-serif: var(--font-instrument-serif), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-density="compact"] {
+  --pad: 12px;
+  --gap: 10px;
 }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes pulse-dot { 0%,100% {opacity:1;} 50% {opacity:0.3;} }
