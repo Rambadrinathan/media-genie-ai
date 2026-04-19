@@ -202,60 +202,105 @@ function EditPortfolioContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-50">
+      <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
         <Header variant="admin" page="portfolios" />
-        <div className="text-center py-20 text-stone-400">Loading portfolio...</div>
+        <div className="text-center py-20" style={{ color: 'var(--muted)' }}>Loading portfolio...</div>
       </div>
     )
   }
 
+  const isDraft = portfolio?.status !== 'published'
+
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
       <Header variant="admin" page="portfolios" />
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Top actions */}
-        <div className="flex items-center justify-between mb-6">
-          <a href="/portfolio" className="text-sm text-stone-500 hover:text-stone-800 flex items-center gap-1">
-            <span>&larr;</span> Back to Portfolios
-          </a>
-          <div className="flex gap-2">
+      <div className="mx-auto px-7 py-7" style={{ maxWidth: 1200 }}>
+        {/* Page head */}
+        <div className="flex items-end justify-between mb-6 gap-8">
+          <div>
+            <a
+              href="/portfolio"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)', textDecoration: 'none' }}
+            >
+              ← Back to portfolios
+            </a>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 32, lineHeight: 1.05, margin: '4px 0 0', letterSpacing: '-0.01em' }}>
+              Editor
+            </h1>
+          </div>
+          <div className="flex gap-[10px]">
             <button
               onClick={() => window.open(`/gallery/${id}`, '_blank')}
-              className="px-3 py-1.5 text-sm text-stone-600 border border-stone-300 rounded-md hover:bg-stone-100"
+              style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, padding: '9px 16px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}
             >
               Preview
             </button>
             <button
               onClick={togglePublish}
-              className={`px-3 py-1.5 text-sm rounded-md font-medium ${
-                portfolio?.status === 'published'
-                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
-              }`}
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 13,
+                fontWeight: 500,
+                padding: '9px 16px',
+                borderRadius: 8,
+                border: `1px solid ${isDraft ? 'var(--accent)' : 'var(--line)'}`,
+                background: isDraft ? 'var(--accent)' : 'transparent',
+                color: isDraft ? '#fff' : 'var(--ink)',
+                cursor: 'pointer',
+              }}
             >
               {portfolio?.status === 'published' ? 'Unpublish' : 'Publish'}
             </button>
             <button
               onClick={save}
               disabled={saving}
-              className="bg-stone-800 hover:bg-stone-900 disabled:bg-stone-300 text-white px-4 py-1.5 rounded-md text-sm font-medium"
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 13,
+                fontWeight: 500,
+                padding: '9px 16px',
+                borderRadius: 8,
+                border: '1px solid var(--ink)',
+                background: saving ? 'var(--muted)' : 'var(--ink)',
+                color: 'var(--paper)',
+                cursor: saving ? 'default' : 'pointer',
+              }}
             >
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>
 
-        {/* Title */}
-        <div className="mb-6">
-          <label className="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Portfolio Title</label>
+        {/* Main editor card */}
+        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '24px 28px' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+            {portfolio?.template || 'custom'} template · {images.length} image{images.length === 1 ? '' : 's'}
+          </div>
           <input
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            className="w-full text-2xl font-semibold text-stone-800 bg-transparent border-b-2 border-stone-200 focus:border-stone-800 outline-none pb-2 transition"
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: 36,
+              lineHeight: 1.1,
+              border: 0,
+              outline: 0,
+              width: '100%',
+              background: 'transparent',
+              color: 'var(--ink)',
+              padding: '0 0 8px',
+              borderBottom: '1px dashed transparent',
+              marginTop: 4,
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--line)' }}
+            onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'transparent' }}
           />
-        </div>
+          <div className="flex gap-4 items-center" style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+            <span>Status · {portfolio?.status || 'draft'}</span>
+            {portfolio?.prompt && <span>Prompt · &ldquo;{portfolio.prompt}&rdquo;</span>}
+          </div>
 
         {/* Cover image selector */}
         <div className="mb-6">
@@ -356,11 +401,13 @@ function EditPortfolioContent() {
           </div>
         </div>
 
+        </div>
+
         {/* Danger zone */}
-        <div className="border-t border-stone-200 pt-6 mt-8">
+        <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--line)' }}>
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="text-sm text-red-500 hover:text-red-700"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, padding: '9px 16px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--danger)', cursor: 'pointer' }}
           >
             Delete this portfolio
           </button>

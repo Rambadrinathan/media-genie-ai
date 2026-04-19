@@ -131,73 +131,127 @@ function PortfolioContent() {
     ? approvedImages.filter(img => (img.tags || []).includes(filterTag))
     : approvedImages
 
+  const drafts = portfolios.filter(p => p.status !== 'published').length
+  const published = portfolios.filter(p => p.status === 'published').length
+
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
       <Header variant="admin" page="portfolios" />
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Create button */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-stone-800">Your Portfolios</h2>
+      <div className="mx-auto px-7 py-7" style={{ maxWidth: 1360 }}>
+        {/* Page head */}
+        <div className="flex items-end justify-between mb-6 gap-8">
+          <div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+              {drafts} draft{drafts === 1 ? '' : 's'} · {published} published
+            </div>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 40, lineHeight: 1.05, letterSpacing: '-0.01em', margin: '4px 0 0' }}>
+              Your <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>portfolios</em>.
+            </h1>
+            <p style={{ color: 'var(--muted)', maxWidth: 540, marginTop: 6, fontSize: 14 }}>
+              Curated stories built from your approved images. Published URLs are shareable without sign-in.
+            </p>
+          </div>
           <button
             onClick={() => setShowBuilder(true)}
-            className="bg-stone-800 hover:bg-stone-900 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="cursor-pointer"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, padding: '9px 16px', borderRadius: 8, border: '1px solid var(--ink)', background: 'var(--ink)', color: 'var(--paper)' }}
           >
-            + Create Portfolio
+            ＋ New portfolio
           </button>
         </div>
 
         {/* Portfolio list */}
         {portfolios.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-stone-400 text-lg">No portfolios yet</p>
-            <p className="text-stone-300 text-sm mt-1">Create your first portfolio with a prompt</p>
+            <p style={{ color: 'var(--muted)', fontSize: 18 }}>No portfolios yet</p>
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4, opacity: 0.7 }}>
+              Create your first portfolio with a prompt
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[18px]">
             {portfolios.map(p => (
-              <div key={p.id} className="bg-white rounded-lg border border-stone-200 overflow-hidden hover:shadow-md transition">
-                <div className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-medium text-stone-800">{p.title}</h3>
-                      <p className="text-sm text-stone-400 mt-1">{p.template} template</p>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        p.status === 'published'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      {p.status}
-                    </span>
+              <a
+                key={p.id}
+                href={`/portfolio/${p.id}/edit`}
+                className="overflow-hidden transition-all"
+                style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, textDecoration: 'none', color: 'var(--ink)', display: 'block' }}
+              >
+                <div
+                  className="relative overflow-hidden"
+                  style={{ aspectRatio: '16/9', background: 'var(--sand-2)', borderBottom: '1px solid var(--line)' }}
+                >
+                  <span
+                    className="absolute top-3 right-3 z-10"
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 10,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      background: p.status === 'published' ? 'var(--leaf-soft)' : 'var(--sand)',
+                      color: p.status === 'published' ? 'var(--leaf)' : 'var(--bark)',
+                    }}
+                  >
+                    {p.status === 'published' ? 'Published' : 'Draft'}
+                  </span>
+                </div>
+                <div style={{ padding: '18px 20px 20px' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+                    {p.template || 'custom'} template
                   </div>
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, lineHeight: 1.15, margin: '4px 0 6px', letterSpacing: '-0.005em' }}>
+                    {p.title}
+                  </h3>
                   {p.prompt && (
-                    <p className="text-sm text-stone-500 mt-2 line-clamp-2">&ldquo;{p.prompt}&rdquo;</p>
+                    <p
+                      style={{ color: 'var(--muted)', fontSize: 13, fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                    >
+                      &ldquo;{p.prompt}&rdquo;
+                    </p>
                   )}
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-stone-100">
-                    <span className="text-xs text-stone-400">
-                      {p.image_ids?.length || 0} images
-                    </span>
-                    <div className="flex gap-3">
+                  <div
+                    className="flex items-center justify-between mt-[14px] pt-[14px]"
+                    style={{ borderTop: '1px dashed var(--line-soft)', fontSize: 12, color: 'var(--muted)' }}
+                  >
+                    <span>{p.image_ids?.length || 0} images</span>
+                    <div className="flex gap-[14px]">
                       <a
                         href={`/gallery/${p.id}`}
-                        className="text-xs text-stone-600 hover:text-stone-800 underline"
+                        target="_blank"
+                        onClick={e => e.stopPropagation()}
+                        style={{ color: 'var(--ink)', textDecoration: 'none' }}
                       >
-                        View
-                      </a>
-                      <a
-                        href={`/portfolio/${p.id}/edit`}
-                        className="text-xs text-stone-600 hover:text-stone-800 underline"
-                      >
-                        Edit
+                        View →
                       </a>
                     </div>
                   </div>
                 </div>
-              </div>
+              </a>
             ))}
+
+            {/* Empty slot to start new */}
+            <button
+              onClick={() => setShowBuilder(true)}
+              className="flex items-center justify-center cursor-pointer"
+              style={{
+                minHeight: 260,
+                borderRadius: 14,
+                border: '1px dashed var(--line)',
+                background: 'transparent',
+                color: 'var(--muted)',
+              }}
+            >
+              <div className="text-center">
+                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 36, color: 'var(--accent)', lineHeight: 1 }}>＋</div>
+                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--ink)', marginTop: 6 }}>
+                  Start a new portfolio
+                </div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Type a prompt. We&apos;ll curate.</div>
+              </div>
+            </button>
           </div>
         )}
       </div>
