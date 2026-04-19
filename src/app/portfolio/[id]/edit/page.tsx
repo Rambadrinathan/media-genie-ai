@@ -7,6 +7,7 @@ import { AdminGate } from '@/components/AdminGate'
 import { Header } from '@/components/Header'
 import { useToast } from '@/components/Toast'
 import { ConfirmModal } from '@/components/ConfirmModal'
+import { ShareBar } from '@/components/ShareBar'
 import type { ImageRecord, Portfolio } from '@/lib/types'
 
 export default function EditPortfolioPage() {
@@ -301,6 +302,20 @@ function EditPortfolioContent() {
             <span>Status · {portfolio?.status || 'draft'}</span>
             {portfolio?.prompt && <span>Prompt · &ldquo;{portfolio.prompt}&rdquo;</span>}
           </div>
+
+          {/* Share panel — editor share row */}
+          {portfolio?.status === 'published' && (
+            <div className="mt-6" style={{ padding: '14px 16px', borderRadius: 10, background: 'var(--paper)', border: '1px solid var(--line)' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+                Share
+              </div>
+              <ShareBar
+                title={portfolio.title}
+                url={typeof window !== 'undefined' ? `${window.location.origin}/gallery/${id}` : `/gallery/${id}`}
+                variant="ghost"
+              />
+            </div>
+          )}
 
         {/* Cover image selector */}
         <div className="mb-6">

@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import { GalleryNav } from './GalleryNav'
+import { ShareBar } from '@/components/ShareBar'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -102,6 +103,9 @@ export default async function GalleryPage({ params }: Props) {
           {portfolio.prompt && (
             <p style={{ fontSize: 15, opacity: 0.85, maxWidth: 500 }}>&ldquo;{portfolio.prompt}&rdquo;</p>
           )}
+          <div className="mt-[18px]">
+            <ShareBar title={portfolio.title} url={portfolioUrl} variant="compact" />
+          </div>
         </div>
       </div>
 
