@@ -97,7 +97,13 @@
 > Feebdack on Version of Media Genie near perfect, now...
 > The only clink i could find is in the 'Add Images' page that pops up from the Add Images button click on the Portfolio Editor. In this pop up window, the images that are being displayed in a scrollable section within this window... At 100% zoom, this scrollable section is vertically not providing the space for the user to actually see even on row of images fully. So vertical space provided for this scrollable section where image is being displayed is small compared to the overall pop-up window size... So either it should be a different page and not a pop up window, or the pop up window should be bigger at least in height, or the other content in that window need to be composed so that we have more space for display of the images. Also, in the Portfolio page, the thumnail pics of the portfolios did not load, on my machine.
 
-**Shipped as:** _(pending approval — see proposed fix below)_
+**Shipped as:** two surgical fixes deployed on Apr 20, 2026.
+
+1. **Add Images — dedicated page, not a modal.** New route `/portfolio/[id]/edit/add` replaces the cramped pop-up. Full-viewport image grid (auto-fill, min 180px columns), filter bar at top (Folders / Scenes / Tags / Min quality / Search / Clear), sticky bottom action bar with "Add N to portfolio" when selections are made. Hand-off back to the editor via `sessionStorage` — pending additions merge into the editor's image list on mount, user still clicks Save to persist. The old modal (+310 lines of JSX + state) is gone entirely. Considered options (a) separate page / (b) taller modal / (c) recompose filters — went with (a) because a decision task (picking 10 from 200+) deserves a workspace, not a modal, and scales to tomorrow's 2,000 images.
+
+2. **Portfolio list — cover thumbnails now render.** Earlier Direction A shipped the 16:9 cover area as an empty `<div>` with a solid color — no `<img>` tag at all. `fetchPortfolios()` now does one extra round-trip (`SELECT id, thumbnail_url, cdn_url FROM images WHERE id IN (cover_ids)`), falling back to `image_ids[0]` when `cover_image_id` is null. The status pill sits on a subtle white/blurred background so it stays legible over any image. Solid-color fallback is kept for portfolios with no images.
+
+Tags: `v10-before-modal-and-thumb-fix` / `v10-approved`. PR #1 merged to `main` on Apr 20, 11:12 UTC — auto-deploying to `media-genie-ai.vercel.app`.
 
 ---
 
