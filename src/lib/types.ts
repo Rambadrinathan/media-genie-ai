@@ -55,4 +55,7 @@ export interface Portfolio {
   created_at: string
   deleted_at: string | null
   updated_at: string | null
+  // Client-side convenience: resolved thumbnail URL for the cover image,
+  // populated by list fetchers. Not a DB column.
+  cover_thumbnail_url?: string
 }

@@ -58,7 +58,31 @@ function PortfolioContent() {
       .select('*')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-    setPortfolios(data || [])
+    const rows = (data || []) as Portfolio[]
+
+    // Fetch cover thumbnails in one round-trip so the list shows real images,
+    // not just solid placeholders. Falls back to the first image_id when no
+    // explicit cover is set.
+    const coverIds = Array.from(new Set(
+      rows.map(p => p.cover_image_id || p.image_ids?.[0] || null).filter((v): v is string => !!v)
+    ))
+    let coverMap: Record<string, string> = {}
+    if (coverIds.length > 0) {
+      const { data: imgs } = await supabase
+        .from('images')
+        .select('id, thumbnail_url, cdn_url')
+        .in('id', coverIds)
+      coverMap = Object.fromEntries(
+        (imgs || []).map((img: { id: string; thumbnail_url: string | null; cdn_url: string | null }) => [
+          img.id,
+          img.thumbnail_url || img.cdn_url || '',
+        ])
+      )
+    }
+    setPortfolios(rows.map(p => ({
+      ...p,
+      cover_thumbnail_url: coverMap[p.cover_image_id || p.image_ids?.[0] || ''] || '',
+    })))
   }
 
   async function fetchApprovedImages() {
@@ -182,6 +206,15 @@ function PortfolioContent() {
                   className="relative overflow-hidden"
                   style={{ aspectRatio: '16/9', background: 'var(--sand-2)', borderBottom: '1px solid var(--line)' }}
                 >
+                  {p.cover_thumbnail_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.cover_thumbnail_url}
+                      alt=""
+                      loading="lazy"
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  )}
                   <span
                     className="absolute top-3 right-3 z-10"
                     style={{
@@ -191,8 +224,9 @@ function PortfolioContent() {
                       textTransform: 'uppercase',
                       padding: '3px 8px',
                       borderRadius: 4,
-                      background: p.status === 'published' ? 'var(--leaf-soft)' : 'var(--sand)',
+                      background: p.status === 'published' ? 'var(--leaf-soft)' : 'rgba(255,255,255,0.92)',
                       color: p.status === 'published' ? 'var(--leaf)' : 'var(--bark)',
+                      backdropFilter: 'blur(4px)',
                     }}
                   >
                     {p.status === 'published' ? 'Published' : 'Draft'}

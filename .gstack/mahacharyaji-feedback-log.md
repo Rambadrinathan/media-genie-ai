@@ -90,8 +90,19 @@
 
 ---
 
+## Direction A redesign — first-review feedback
+
+**When:** Apr 20, 2026 (reviewing https://media-genie-2.vercel.app)
+
+> Feebdack on Version of Media Genie near perfect, now...
+> The only clink i could find is in the 'Add Images' page that pops up from the Add Images button click on the Portfolio Editor. In this pop up window, the images that are being displayed in a scrollable section within this window... At 100% zoom, this scrollable section is vertically not providing the space for the user to actually see even on row of images fully. So vertical space provided for this scrollable section where image is being displayed is small compared to the overall pop-up window size... So either it should be a different page and not a pop up window, or the pop up window should be bigger at least in height, or the other content in that window need to be composed so that we have more space for display of the images. Also, in the Portfolio page, the thumnail pics of the portfolios did not load, on my machine.
+
+**Shipped as:** _(pending approval — see proposed fix below)_
+
+---
+
 ## Meta
 
-- **Product versions this feedback produced:** v2 (security + share + edit portfolio) · v3 (browser upload + AI classification) · v4 (editable metadata + dynamic taxonomy) · v5 (server-side picker + multi-select + char limits) · v1.0.0 "Media Genie AI" production release · post-v1 polish (folder/scene filter + bulk edit + quality operator + settings).
+- **Product versions this feedback produced:** v2 (security + share + edit portfolio) · v3 (browser upload + AI classification) · v4 (editable metadata + dynamic taxonomy) · v5 (server-side picker + multi-select + char limits) · v1.0.0 "Media Genie AI" production release · post-v1 polish (folder/scene filter + bulk edit + quality operator + settings) · Direction A redesign (Editorial Vatika) · Direction A review round 1.
 - **Time from first draft to production-ready:** Apr 16 → Apr 18. 2 days.
-- **Sessions:** all feedback verbatim from Claude Code session transcripts `c4dfc191-a5c2-47d3-90fc-5feee03be560.jsonl` and `8dee4049-2644-421b-b2ef-6fd71adf6b91.jsonl`.
+- **Sessions:** all feedback verbatim from Claude Code session transcripts `c4dfc191-a5c2-47d3-90fc-5feee03be560.jsonl`, `8dee4049-2644-421b-b2ef-6fd71adf6b91.jsonl`, and the Apr 20 continuation.
