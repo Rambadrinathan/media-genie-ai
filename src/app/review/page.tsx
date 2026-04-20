@@ -24,6 +24,77 @@ type FilterState = {
 
 type BulkEditField = 'quality' | 'folder' | 'scene' | null
 
+const filterLabelStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: 10,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color: 'var(--muted)',
+  minWidth: 60,
+}
+
+const selectStyle: React.CSSProperties = {
+  background: 'var(--sand)',
+  border: '1px solid var(--line)',
+  borderRadius: 8,
+  padding: '7px 12px',
+  fontSize: 13,
+  color: 'var(--ink)',
+  fontFamily: 'inherit',
+}
+
+function chipStyle(active: boolean, kind: 'folder' | 'scene' | 'tag'): React.CSSProperties {
+  const activeBg = kind === 'scene' ? 'var(--leaf)' : kind === 'tag' ? 'var(--accent)' : 'var(--ink)'
+  const activeColor = kind === 'folder' ? 'var(--paper)' : '#fff'
+  return {
+    background: active ? activeBg : 'var(--sand)',
+    border: `1px solid ${active ? activeBg : 'transparent'}`,
+    borderRadius: 999,
+    padding: '4px 11px',
+    fontSize: 12,
+    color: active ? activeColor : 'var(--ink-soft)',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    lineHeight: 1.4,
+  }
+}
+
+function darkBarBtn(kind: 'accent' | 'danger' | 'ghost'): React.CSSProperties {
+  const base: React.CSSProperties = {
+    fontFamily: 'var(--font-sans)',
+    fontSize: 13,
+    fontWeight: 500,
+    padding: '9px 16px',
+    borderRadius: 8,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    lineHeight: 1.2,
+  }
+  if (kind === 'accent') {
+    return { ...base, background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)' }
+  }
+  if (kind === 'danger') {
+    return { ...base, background: 'transparent', color: 'var(--paper)', border: '1px solid rgba(247,241,227,0.25)' }
+  }
+  return { ...base, background: 'transparent', color: 'var(--paper)', border: '1px solid rgba(247,241,227,0.2)' }
+}
+
+const kbdStyle: React.CSSProperties = {
+  display: 'inline-block',
+  background: '#fff',
+  border: '1px solid var(--line)',
+  borderBottomWidth: 2,
+  padding: '2px 7px',
+  borderRadius: 4,
+  fontSize: 11,
+  fontFamily: 'var(--font-mono)',
+  color: 'var(--ink)',
+  margin: '0 4px',
+}
+
 export default function ReviewPage() {
   return (
     <AdminGate>
@@ -250,76 +321,114 @@ function ReviewContent() {
 
   const isTrashView = filters.status === 'deleted'
 
+  const statsCells: Array<{ label: string; value: number; tone?: 'pending' | 'approved' | 'rejected' | 'trash' }> = [
+    { label: 'Total', value: stats.total },
+    { label: 'Pending', value: stats.pending, tone: 'pending' },
+    { label: 'Approved', value: stats.approved, tone: 'approved' },
+    { label: 'Rejected', value: stats.rejected, tone: 'rejected' },
+    { label: 'Trash', value: stats.deleted, tone: 'trash' },
+  ]
+
+  const toneColor = (tone?: string) => {
+    if (tone === 'pending') return 'var(--warn)'
+    if (tone === 'approved') return 'var(--leaf)'
+    if (tone === 'rejected') return 'var(--muted)'
+    if (tone === 'trash') return 'var(--danger)'
+    return 'var(--ink)'
+  }
+
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
       <Header variant="admin" page="review" />
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
-          {[
-            { label: 'Total', value: stats.total, color: 'bg-stone-100 text-stone-800' },
-            { label: 'Pending', value: stats.pending, color: 'bg-amber-50 text-amber-700' },
-            { label: 'Approved', value: stats.approved, color: 'bg-emerald-50 text-emerald-700' },
-            { label: 'Rejected', value: stats.rejected, color: 'bg-stone-100 text-stone-500' },
-            { label: 'Trash', value: stats.deleted, color: 'bg-red-50 text-red-600' },
-          ].map(s => (
-            <div key={s.label} className={`rounded-lg px-4 py-3 ${s.color}`}>
-              <div className="text-2xl font-bold">{s.value}</div>
-              <div className="text-sm opacity-75">{s.label}</div>
+      <div className="mx-auto px-7 py-7" style={{ maxWidth: 1360 }}>
+        {/* Page head */}
+        <div className="flex items-end justify-between mb-6 gap-8">
+          <div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+              Library · {stats.total} image{stats.total === 1 ? '' : 's'}
+            </div>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 40, lineHeight: 1.05, letterSpacing: '-0.01em', margin: '4px 0 0' }}>
+              Today&apos;s <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>
+                {isTrashView ? 'trash' : filters.status === 'approved' ? 'approved' : 'pending'}
+              </em> review.
+            </h1>
+            <p style={{ color: 'var(--muted)', maxWidth: 540, marginTop: 6, fontSize: 14 }}>
+              {stats.pending} image{stats.pending === 1 ? '' : 's'} waiting for your eye. Approve the keepers, skip the rest.
+            </p>
+          </div>
+          <div className="flex gap-[10px]">
+            {!showUploader && (
+              <button
+                onClick={() => setShowUploader(true)}
+                className="inline-flex items-center gap-2 cursor-pointer transition-all"
+                style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500, padding: '9px 16px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink)' }}
+              >
+                ＋ Upload images
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Image uploader */}
+        {showUploader && (
+          <div className="mb-4">
+            <ImageUploader
+              onComplete={() => {
+                fetchImages()
+                fetchStats()
+                fetchTaxonomy()
+              }}
+              onClose={() => setShowUploader(false)}
+            />
+          </div>
+        )}
+
+        {/* Stat strip */}
+        <div
+          className="grid grid-cols-5 mb-6 overflow-hidden"
+          style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14 }}
+        >
+          {statsCells.map((s, i) => (
+            <div
+              key={s.label}
+              className="px-6 py-[18px]"
+              style={{ borderRight: i < statsCells.length - 1 ? '1px solid var(--line-soft)' : 'none' }}
+            >
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                {s.label}
+              </div>
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 34, lineHeight: 1, marginTop: 6, color: toneColor(s.tone) }}>
+                {s.value}
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Upload button */}
-        {!showUploader && (
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={() => setShowUploader(true)}
-              className="bg-stone-800 hover:bg-stone-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              Upload Images
-            </button>
-          </div>
-        )}
-
-        {/* Image uploader */}
-        {showUploader && (
-          <ImageUploader
-            onComplete={() => {
-              fetchImages()
-              fetchStats()
-              fetchTaxonomy()
-            }}
-            onClose={() => setShowUploader(false)}
-          />
-        )}
-
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-stone-200 p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="mb-5" style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '16px 20px' }}>
+          {/* Row 1: show / quality / search */}
+          <div className="flex items-center gap-3 py-[6px] flex-wrap">
+            <span style={filterLabelStyle}>Show</span>
             <select
-              className="border border-stone-300 rounded-md px-3 py-1.5 text-sm bg-white"
               value={filters.status}
               onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+              style={selectStyle}
             >
               <option value="all">All</option>
-              <option value="pending_approval">Pending Review</option>
+              <option value="pending_approval">Pending review</option>
               <option value="approved">Approved</option>
               <option value="deleted">Trash</option>
             </select>
 
             {!isTrashView && (
               <>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-stone-500">Quality</span>
+                <div className="flex items-center gap-[10px]">
+                  <span style={{ ...filterLabelStyle, minWidth: 'auto' }}>Quality</span>
                   <select
                     value={filters.qualityOp}
                     onChange={e => setFilters(f => ({ ...f, qualityOp: e.target.value as QualityOp }))}
-                    className="border border-stone-300 rounded-md px-2 py-1 text-sm bg-white"
+                    style={selectStyle}
                     title="Quality comparison operator"
                   >
                     <option value="gte">at least</option>
@@ -334,172 +443,153 @@ function ReviewContent() {
                     step="1"
                     value={filters.qualityValue}
                     onChange={e => setFilters(f => ({ ...f, qualityValue: Number(e.target.value) }))}
-                    className="w-20"
+                    className="a-range"
+                    style={{ width: 140, background: 'var(--line)', height: 2, borderRadius: 2, WebkitAppearance: 'none', appearance: 'none' }}
                   />
-                  <span className="text-stone-700 font-medium w-4 text-right">{filters.qualityValue}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink)', minWidth: 20 }}>
+                    {filters.qualityValue}
+                  </span>
                 </div>
 
                 <input
                   type="text"
-                  placeholder="Search filename or caption..."
-                  className="border border-stone-300 rounded-md px-3 py-1.5 text-sm flex-1 min-w-48"
+                  placeholder="Search filename, caption, tag…"
                   value={filters.search}
                   onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+                  style={{ flex: 1, background: 'var(--sand)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', color: 'var(--ink)', minWidth: 200 }}
                 />
-
               </>
             )}
           </div>
 
-          {/* Folder / Scene / Tag chip filters — only on non-trash view */}
-          {!isTrashView && (allFolders.length > 0 || allScenes.length > 0 || allTags.length > 0) && (
-            <div className="mt-3 pt-3 border-t border-stone-100 space-y-2">
-              {allFolders.length > 0 && (
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-stone-500 font-medium min-w-16 pt-1">Folders:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {allFolders.map(folder => (
-                      <button
-                        key={folder}
-                        onClick={() =>
-                          setFilters(f => ({
-                            ...f,
-                            folders: f.folders.includes(folder)
-                              ? f.folders.filter(x => x !== folder)
-                              : [...f.folders, folder],
-                          }))
-                        }
-                        className={`px-2 py-0.5 rounded-full text-xs border transition ${
-                          filters.folders.includes(folder)
-                            ? 'bg-stone-800 text-white border-stone-800'
-                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
-                        }`}
-                      >
-                        {folder}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {allScenes.length > 0 && (
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-stone-500 font-medium min-w-16 pt-1">Scenes:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {allScenes.map(scene => (
-                      <button
-                        key={scene}
-                        onClick={() =>
-                          setFilters(f => ({
-                            ...f,
-                            scenes: f.scenes.includes(scene)
-                              ? f.scenes.filter(x => x !== scene)
-                              : [...f.scenes, scene],
-                          }))
-                        }
-                        className={`px-2 py-0.5 rounded-full text-xs border transition ${
-                          filters.scenes.includes(scene)
-                            ? 'bg-stone-800 text-white border-stone-800'
-                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
-                        }`}
-                      >
-                        {scene}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {allTags.length > 0 && (
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-stone-500 font-medium min-w-16 pt-1">Tags:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {allTags.slice(0, 20).map(tag => (
-                      <button
-                        key={tag}
-                        onClick={() =>
-                          setFilters(f => ({
-                            ...f,
-                            tags: f.tags.includes(tag)
-                              ? f.tags.filter(t => t !== tag)
-                              : [...f.tags, tag],
-                          }))
-                        }
-                        className={`px-2 py-0.5 rounded-full text-xs border transition ${
-                          filters.tags.includes(tag)
-                            ? 'bg-stone-800 text-white border-stone-800'
-                            : 'bg-white text-stone-600 border-stone-300 hover:border-stone-500'
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {(filters.folders.length > 0 || filters.scenes.length > 0 || filters.tags.length > 0) && (
-                <button
-                  onClick={() => setFilters(f => ({ ...f, folders: [], scenes: [], tags: [] }))}
-                  className="text-xs text-stone-500 hover:text-stone-800 underline"
-                >
-                  Clear chip filters
-                </button>
-              )}
+          {/* Folders chips */}
+          {!isTrashView && allFolders.length > 0 && (
+            <div className="flex items-start gap-3 pt-3 mt-[6px]" style={{ borderTop: '1px dashed var(--line-soft)' }}>
+              <span style={{ ...filterLabelStyle, paddingTop: 6 }}>Folders</span>
+              <div className="flex flex-wrap gap-[6px]">
+                {allFolders.map(folder => (
+                  <button
+                    key={folder}
+                    onClick={() =>
+                      setFilters(f => ({
+                        ...f,
+                        folders: f.folders.includes(folder)
+                          ? f.folders.filter(x => x !== folder)
+                          : [...f.folders, folder],
+                      }))
+                    }
+                    style={chipStyle(filters.folders.includes(folder), 'folder')}
+                  >
+                    {folder}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Scenes chips */}
+          {!isTrashView && allScenes.length > 0 && (
+            <div className="flex items-start gap-3 pt-3 mt-[6px]" style={{ borderTop: '1px dashed var(--line-soft)' }}>
+              <span style={{ ...filterLabelStyle, paddingTop: 6 }}>Scenes</span>
+              <div className="flex flex-wrap gap-[6px]">
+                {allScenes.map(scene => (
+                  <button
+                    key={scene}
+                    onClick={() =>
+                      setFilters(f => ({
+                        ...f,
+                        scenes: f.scenes.includes(scene)
+                          ? f.scenes.filter(x => x !== scene)
+                          : [...f.scenes, scene],
+                      }))
+                    }
+                    style={chipStyle(filters.scenes.includes(scene), 'scene')}
+                  >
+                    {scene}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tags chips */}
+          {!isTrashView && allTags.length > 0 && (
+            <div className="flex items-start gap-3 pt-3 mt-[6px]" style={{ borderTop: '1px dashed var(--line-soft)' }}>
+              <span style={{ ...filterLabelStyle, paddingTop: 6 }}>Tags</span>
+              <div className="flex flex-wrap gap-[6px]">
+                {allTags.slice(0, 20).map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() =>
+                      setFilters(f => ({
+                        ...f,
+                        tags: f.tags.includes(tag)
+                          ? f.tags.filter(t => t !== tag)
+                          : [...f.tags, tag],
+                      }))
+                    }
+                    style={chipStyle(filters.tags.includes(tag), 'tag')}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isTrashView && (filters.folders.length > 0 || filters.scenes.length > 0 || filters.tags.length > 0) && (
+            <div className="pt-3 mt-[6px]">
+              <button
+                onClick={() => setFilters(f => ({ ...f, folders: [], scenes: [], tags: [] }))}
+                style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', background: 'transparent', border: 0, cursor: 'pointer' }}
+              >
+                Clear chip filters
+              </button>
             </div>
           )}
         </div>
 
         {/* Bulk Actions */}
         {selected.size > 0 && (
-          <div className="bg-stone-800 text-white rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
-            <span className="text-sm">{selected.size} image{selected.size > 1 ? 's' : ''} selected</span>
+          <div
+            className="sticky flex items-center justify-between mb-[14px]"
+            style={{ top: 68, background: 'var(--ink)', color: 'var(--paper)', borderRadius: 14, padding: '12px 18px', zIndex: 10, boxShadow: '0 6px 20px -6px rgba(0,0,0,0.35)' }}
+          >
+            <div className="flex items-center gap-[14px]">
+              <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>
+                {selected.size} selected
+              </span>
+            </div>
             <div className="flex gap-2">
               {isTrashView ? (
                 <button
                   onClick={() => restoreImages([...selected])}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
+                  style={darkBarBtn('accent')}
                 >
-                  Restore Selected
+                  ✓ Restore selected
                 </button>
               ) : (
                 <>
-                  <button
-                    onClick={bulkApprove}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
-                  >
-                    Approve
+                  <button onClick={bulkApprove} style={darkBarBtn('accent')}>
+                    ✓ Approve
                   </button>
-                  <button
-                    onClick={bulkReject}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md text-sm font-medium"
-                  >
-                    Reject
+                  <button onClick={bulkReject} style={darkBarBtn('danger')}>
+                    ✕ Reject
                   </button>
-                  <div className="w-px bg-stone-600 mx-1" />
-                  <button
-                    onClick={() => setBulkEdit('quality')}
-                    className="bg-stone-700 hover:bg-stone-600 text-white px-3 py-1.5 rounded-md text-sm font-medium"
-                    title="Set quality score for all selected"
-                  >
-                    Set Quality
+                  <button onClick={() => setBulkEdit('quality')} style={darkBarBtn('ghost')}>
+                    Set quality
                   </button>
-                  <button
-                    onClick={() => setBulkEdit('folder')}
-                    className="bg-stone-700 hover:bg-stone-600 text-white px-3 py-1.5 rounded-md text-sm font-medium"
-                    title="Set folder for all selected"
-                  >
-                    Set Folder
+                  <button onClick={() => setBulkEdit('folder')} style={darkBarBtn('ghost')}>
+                    Change folder
                   </button>
-                  <button
-                    onClick={() => setBulkEdit('scene')}
-                    className="bg-stone-700 hover:bg-stone-600 text-white px-3 py-1.5 rounded-md text-sm font-medium"
-                    title="Set scene for all selected"
-                  >
-                    Set Scene
+                  <button onClick={() => setBulkEdit('scene')} style={darkBarBtn('ghost')}>
+                    Change scene
                   </button>
                 </>
               )}
               <button
                 onClick={() => setSelected(new Set())}
-                className="text-stone-300 hover:text-white px-3 py-1.5 text-sm"
+                style={{ background: 'transparent', color: 'var(--paper)', opacity: 0.6, padding: '6px 10px', fontSize: 13, border: 0, cursor: 'pointer' }}
               >
                 Clear
               </button>
@@ -507,114 +597,145 @@ function ReviewContent() {
           </div>
         )}
 
-        {/* Select All */}
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={selectAll} className="text-sm text-stone-500 hover:text-stone-700">
-            {selected.size === images.length && images.length > 0 ? 'Deselect All' : 'Select All'}
-          </button>
-          <span className="text-sm text-stone-400">{images.length} images</span>
+        {/* Select All / Count row */}
+        <div className="flex items-center justify-between mt-2 mb-[14px] mx-[2px]">
+          <label className="flex items-center gap-2 text-[13px] cursor-pointer" style={{ color: 'var(--muted)' }}>
+            <input
+              type="checkbox"
+              checked={selected.size === images.length && images.length > 0}
+              onChange={selectAll}
+            />
+            Select all on page
+          </label>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+            {images.length} image{images.length === 1 ? '' : 's'}
+          </span>
         </div>
 
         {/* Image Grid */}
         {loading ? (
-          <div className="text-center py-20 text-stone-400">Loading images...</div>
+          <div className="text-center py-20" style={{ color: 'var(--muted)' }}>Loading images...</div>
         ) : images.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-stone-400 text-lg">
+            <p style={{ color: 'var(--muted)', fontSize: 18 }}>
               {isTrashView ? 'Trash is empty' : 'No images found'}
             </p>
-            <p className="text-stone-300 text-sm mt-1">
-              {isTrashView ? 'Rejected images appear here and can be restored' : 'Drop images into your Google Drive _inbox folder'}
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4, opacity: 0.7 }}>
+              {isTrashView ? 'Rejected images appear here and can be restored' : 'Upload images or adjust your filters'}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {images.map(img => (
-              <div
-                key={img.id}
-                className={`group relative bg-white rounded-lg border overflow-hidden cursor-pointer transition ${
-                  selected.has(img.id) ? 'border-stone-800 ring-2 ring-stone-800' : 'border-stone-200 hover:border-stone-400'
-                } ${isTrashView ? 'opacity-75' : ''}`}
-              >
-                {/* Checkbox */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[14px]">
+            {images.map(img => {
+              const isSel = selected.has(img.id)
+              return (
                 <div
-                  className="absolute top-2 left-2 z-10"
-                  onClick={e => {
-                    e.stopPropagation()
-                    toggleSelect(img.id)
+                  key={img.id}
+                  className="group relative overflow-hidden cursor-pointer transition-all"
+                  style={{
+                    background: '#fff',
+                    border: `1px solid ${isSel ? 'var(--accent)' : 'var(--line)'}`,
+                    borderRadius: 10,
+                    boxShadow: isSel ? '0 0 0 3px var(--accent-soft)' : undefined,
+                    opacity: isTrashView ? 0.75 : 1,
                   }}
                 >
+                  {/* Image area */}
                   <div
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-                      selected.has(img.id)
-                        ? 'bg-stone-800 border-stone-800'
-                        : 'bg-white/80 border-stone-300 group-hover:border-stone-500'
-                    }`}
+                    className="relative overflow-hidden"
+                    style={{ aspectRatio: '4/3', background: 'var(--sand-2)' }}
+                    onClick={() => setModalImage(img)}
                   >
-                    {selected.has(img.id) && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                    {/* Checkbox */}
+                    <div
+                      className="absolute top-2 left-2 z-10"
+                      onClick={e => {
+                        e.stopPropagation()
+                        toggleSelect(img.id)
+                      }}
+                    >
+                      <div
+                        className="flex items-center justify-center"
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 5,
+                          background: isSel ? 'var(--accent)' : 'rgba(255,255,255,0.92)',
+                          border: `1px solid ${isSel ? 'var(--accent)' : 'var(--line)'}`,
+                          color: isSel ? '#fff' : 'var(--muted)',
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {isSel ? '✓' : ''}
+                      </div>
+                    </div>
+
+                    {/* Quality badge */}
+                    {img.quality_score !== null && img.quality_score !== undefined && (
+                      <div
+                        className="absolute top-2 right-2 z-10"
+                        style={{
+                          background: 'rgba(31, 29, 24, 0.78)',
+                          color: '#fff',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '3px 7px',
+                          borderRadius: 4,
+                        }}
+                      >
+                        {img.quality_score.toFixed(1)}
+                      </div>
+                    )}
+
+                    {img.thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={img.thumbnail_url}
+                        alt={img.ai_caption || img.filename}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center" style={{ color: 'var(--muted)', fontSize: 28 }}>
+                        ?
+                      </div>
                     )}
                   </div>
-                </div>
 
-                {/* Quality badge */}
-                <div className="absolute top-2 right-2 z-10">
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                      (img.quality_score || 0) >= 7
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : (img.quality_score || 0) >= 5
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {img.quality_score?.toFixed(1)}
-                  </span>
-                </div>
+                  {/* Meta: folder + scene */}
+                  <div className="flex items-center justify-between gap-2" style={{ padding: '10px 12px' }}>
+                    <span
+                      className="truncate"
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--muted)' }}
+                    >
+                      {img.classified_folder || '—'}
+                    </span>
+                    <span
+                      style={{ fontSize: 11, color: 'var(--leaf)', fontWeight: 500, flexShrink: 0 }}
+                    >
+                      {img.scene || ''}
+                    </span>
+                  </div>
 
-                {/* Image */}
-                <div
-                  className="aspect-square bg-stone-100"
-                  onClick={() => setModalImage(img)}
-                >
-                  {img.thumbnail_url ? (
-                    <img
-                      src={img.thumbnail_url}
-                      alt={img.ai_caption || img.filename}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-300 text-3xl">
-                      ?
+                  {isTrashView && img.deleted_at && (
+                    <div className="px-3 pb-2" style={{ fontSize: 10, color: 'var(--danger)' }}>
+                      Deleted {new Date(img.deleted_at).toLocaleDateString()}
                     </div>
                   )}
                 </div>
+              )
+            })}
+          </div>
+        )}
 
-                {/* Info */}
-                <div className="p-2">
-                  <p className="text-xs text-stone-600 truncate">{img.ai_caption || img.filename}</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {(img.tags || []).slice(0, 3).map(tag => (
-                      <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-stone-100 text-stone-500 rounded">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  {isTrashView && img.deleted_at && (
-                    <p className="text-[10px] text-red-400 mt-1">
-                      Deleted {new Date(img.deleted_at).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
+        {/* Keyboard hint footer */}
+        {!loading && images.length > 0 && !isTrashView && (
+          <div className="flex justify-center gap-[18px] items-center pt-5" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--muted)' }}>
+            <span><kbd style={kbdStyle}>E</kbd> edit details</span>
+            <span><kbd style={kbdStyle}>A</kbd> approve</span>
+            <span><kbd style={kbdStyle}>R</kbd> reject</span>
           </div>
         )}
       </div>

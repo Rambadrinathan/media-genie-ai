@@ -17,6 +17,52 @@ export default function SettingsPage() {
 
 type TaxonomyType = 'folder' | 'scene'
 
+function tabStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: '12px 20px',
+    fontFamily: 'var(--font-serif)',
+    fontSize: 18,
+    fontStyle: 'italic',
+    color: active ? 'var(--ink)' : 'var(--muted)',
+    cursor: 'pointer',
+    borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
+    background: 'transparent',
+    marginBottom: -1,
+  }
+}
+
+const tabCount: React.CSSProperties = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: 11,
+  marginLeft: 6,
+  color: 'var(--muted)',
+  fontStyle: 'normal',
+}
+
+const ghostBtn: React.CSSProperties = {
+  fontFamily: 'var(--font-sans)',
+  fontSize: 12,
+  fontWeight: 500,
+  padding: '6px 12px',
+  borderRadius: 8,
+  border: '1px solid var(--line)',
+  background: 'transparent',
+  color: 'var(--ink)',
+  cursor: 'pointer',
+}
+
+const dangerBtn: React.CSSProperties = {
+  fontFamily: 'var(--font-sans)',
+  fontSize: 12,
+  fontWeight: 500,
+  padding: '6px 12px',
+  borderRadius: 8,
+  border: '1px solid var(--line)',
+  background: 'transparent',
+  color: 'var(--danger)',
+  cursor: 'pointer',
+}
+
 type TaxonomyData = {
   folders: string[]
   scenes: string[]
@@ -111,98 +157,112 @@ function SettingsContent() {
     ? data?.folders.map(name => ({ name, count: data.folderCounts[name] || 0 }))
     : data?.scenes.map(name => ({ name, count: data.sceneCounts[name] || 0 }))
 
+  const totalImagesCount = (data?.folders.reduce((acc, f) => acc + (data.folderCounts[f] || 0), 0)) || 0
+
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
       <Header variant="admin" page="settings" />
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-stone-900">Settings</h1>
-          <p className="text-sm text-stone-500 mt-1">
-            Manage folders and scenes used across your image library.
-          </p>
-        </div>
-
-        <div className="bg-white border border-stone-200 rounded-lg overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-stone-200">
-            <button
-              onClick={() => setTab('folder')}
-              className={`px-5 py-3 text-sm font-medium transition ${
-                tab === 'folder'
-                  ? 'text-stone-900 border-b-2 border-stone-900'
-                  : 'text-stone-500 hover:text-stone-700'
-              }`}
-            >
-              Folders {data && <span className="text-xs text-stone-400 ml-1">({data.folders.length})</span>}
-            </button>
-            <button
-              onClick={() => setTab('scene')}
-              className={`px-5 py-3 text-sm font-medium transition ${
-                tab === 'scene'
-                  ? 'text-stone-900 border-b-2 border-stone-900'
-                  : 'text-stone-500 hover:text-stone-700'
-              }`}
-            >
-              Scenes {data && <span className="text-xs text-stone-400 ml-1">({data.scenes.length})</span>}
-            </button>
-          </div>
-
-          {/* Help text */}
-          <div className="px-5 py-3 bg-stone-50 border-b border-stone-200 text-xs text-stone-600">
-            {tab === 'folder'
-              ? 'Folders are the top-level category for each image (e.g. "projects", "clients"). Renaming updates every image using that folder. Deleting clears the folder label from all images — the images themselves are untouched.'
-              : 'Scenes describe the context within a folder (e.g. "exterior", "closeup"). Renaming updates every image using that scene. Deleting clears the scene label from all images — the images themselves are untouched.'}
-          </div>
-
-          {/* List */}
+      <main className="mx-auto px-7 py-7" style={{ maxWidth: 1100 }}>
+        {/* Page head */}
+        <div className="flex items-end justify-between mb-6 gap-8">
           <div>
-            {loading && (
-              <div className="px-5 py-8 text-center text-sm text-stone-500">Loading...</div>
-            )}
-
-            {!loading && (!items || items.length === 0) && (
-              <div className="px-5 py-8 text-center text-sm text-stone-500">
-                No {tab === 'folder' ? 'folders' : 'scenes'} yet. They'll appear here as you classify images.
-              </div>
-            )}
-
-            {!loading && items && items.length > 0 && (
-              <ul className="divide-y divide-stone-100">
-                {items.map(item => (
-                  <li key={item.name} className="flex items-center justify-between px-5 py-3 hover:bg-stone-50">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="font-medium text-stone-900 truncate">{item.name}</span>
-                      <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded">
-                        {item.count} {item.count === 1 ? 'image' : 'images'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setRenaming({ type: tab, oldName: item.name })
-                          setRenameValue(item.name)
-                        }}
-                        className="text-xs text-stone-600 hover:text-stone-900 border border-stone-300 hover:border-stone-400 rounded px-2.5 py-1"
-                      >
-                        Rename
-                      </button>
-                      <button
-                        onClick={() => setDeleting({ type: tab, name: item.name, count: item.count })}
-                        className="text-xs text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 rounded px-2.5 py-1"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+              Library · {totalImagesCount} image{totalImagesCount === 1 ? '' : 's'} · {data?.folders.length || 0} folder{data?.folders.length === 1 ? '' : 's'} · {data?.scenes.length || 0} scene{data?.scenes.length === 1 ? '' : 's'}
+            </div>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 40, lineHeight: 1.05, letterSpacing: '-0.01em', margin: '4px 0 0' }}>
+              Taxonomy &amp; <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>workspace</em>.
+            </h1>
+            <p style={{ color: 'var(--muted)', maxWidth: 620, marginTop: 6, fontSize: 14 }}>
+              Folders are the top-level category (project, client). Scenes are the context within (aerial-view, exhibition). Edit either here and every image updates.
+            </p>
           </div>
         </div>
 
-        <p className="text-xs text-stone-400 mt-4 leading-relaxed">
-          Note: folders and scenes are derived from your images &mdash; there are no standalone records. Adding a new folder or scene happens inline from an image&apos;s Edit Details screen.
+        {/* Tabs */}
+        <div className="flex gap-[2px]" style={{ borderBottom: '1px solid var(--line)', marginBottom: 4 }}>
+          <button
+            onClick={() => setTab('folder')}
+            style={tabStyle(tab === 'folder')}
+          >
+            Folders {data && <span style={tabCount}>{data.folders.length}</span>}
+          </button>
+          <button
+            onClick={() => setTab('scene')}
+            style={tabStyle(tab === 'scene')}
+          >
+            Scenes {data && <span style={tabCount}>{data.scenes.length}</span>}
+          </button>
+        </div>
+
+        {/* Help text */}
+        <div className="px-1 pt-4 pb-5" style={{ color: 'var(--muted)', fontSize: 13, maxWidth: 680, lineHeight: 1.55 }}>
+          {tab === 'folder'
+            ? 'Rename updates every image using that folder. Delete clears the label — the images themselves stay untouched.'
+            : 'Rename updates every image using that scene. Delete clears the label — the images themselves stay untouched.'}
+        </div>
+
+        {/* List */}
+        {loading ? (
+          <div className="text-center py-8" style={{ color: 'var(--muted)', fontSize: 13 }}>Loading...</div>
+        ) : !items || items.length === 0 ? (
+          <div className="text-center py-12" style={{ color: 'var(--muted)', fontSize: 13 }}>
+            No {tab === 'folder' ? 'folders' : 'scenes'} yet. They&apos;ll appear here as you classify images.
+          </div>
+        ) : (
+          <div style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
+            {items.map((item, i) => (
+              <div
+                key={item.name}
+                className="grid items-center gap-4 px-4 py-[14px]"
+                style={{
+                  gridTemplateColumns: '1fr auto auto',
+                  background: '#fff',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--line-soft)',
+                }}
+              >
+                <div className="flex items-baseline gap-3 min-w-0">
+                  <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--ink)' }} className="truncate">
+                    {item.name}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 10,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      color: 'var(--muted)',
+                      background: 'var(--sand)',
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.count} {item.count === 1 ? 'image' : 'images'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setRenaming({ type: tab, oldName: item.name })
+                    setRenameValue(item.name)
+                  }}
+                  style={ghostBtn}
+                >
+                  Rename
+                </button>
+                <button
+                  onClick={() => setDeleting({ type: tab, name: item.name, count: item.count })}
+                  style={dangerBtn}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="mt-4" style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.55, opacity: 0.8 }}>
+          Note: folders and scenes are derived from your images — there are no standalone records. Adding a new folder or scene happens inline from an image&apos;s Edit Details screen.
         </p>
       </main>
 

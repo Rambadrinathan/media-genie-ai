@@ -6,20 +6,24 @@ interface GalleryNavProps {
   title: string
   url: string
   portfolioId: string
+  /** when inline in hero, render compact pill buttons; when in the top bar, render ghost buttons */
+  variant?: 'compact' | 'ghost'
 }
 
-export function GalleryNav({ title, url, portfolioId }: GalleryNavProps) {
+/**
+ * Share row for public galleries. Kept as a client component so ShareBar's
+ * clipboard + QR modal can run. Imported by the server-rendered public gallery.
+ */
+export function GalleryNav({ title, url, variant = 'ghost' }: GalleryNavProps) {
   return (
-    <div className="bg-white/90 backdrop-blur border-b border-stone-200 sticky top-0 z-30">
-      <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
-        <a
-          href="/portfolio"
-          className="text-sm text-stone-500 hover:text-stone-800 flex items-center gap-1"
-        >
-          <span>&larr;</span> Back to Portfolios
-        </a>
-        <ShareBar title={title} url={url} />
-      </div>
+    <div className="flex items-center gap-4">
+      <a
+        href="/portfolio"
+        style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: variant === 'compact' ? 'rgba(255,255,255,0.8)' : 'var(--muted)', textDecoration: 'none' }}
+      >
+        All portfolios
+      </a>
+      <ShareBar title={title} url={url} variant={variant} />
     </div>
   )
 }
