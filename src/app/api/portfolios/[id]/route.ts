@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const supabase = createServiceClient()
   const body = await request.json()
 
-  const allowedFields = ['title', 'image_ids', 'image_order', 'captions', 'cover_image_id', 'template', 'status']
+  const allowedFields = ['title', 'image_ids', 'image_order', 'captions', 'cover_image_id', 'template', 'status', 'publish_to_website']
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
   for (const field of allowedFields) {

@@ -28,6 +28,7 @@ function EditPortfolioContent() {
   const [captions, setCaptions] = useState<Record<string, string>>({})
   const [title, setTitle] = useState('')
   const [coverImageId, setCoverImageId] = useState<string | null>(null)
+  const [publishToWebsite, setPublishToWebsite] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -47,6 +48,7 @@ function EditPortfolioContent() {
     setCaptions(data.portfolio.captions || {})
     setTitle(data.portfolio.title)
     setCoverImageId(data.portfolio.cover_image_id)
+    setPublishToWebsite(data.portfolio.publish_to_website ?? false)
     setLoading(false)
   }, [id, router, showToast])
 
@@ -249,6 +251,58 @@ function EditPortfolioContent() {
               />
             </div>
           )}
+
+        {/* Push to website toggle */}
+        <div className="mb-6 flex items-center gap-3 p-4 bg-white rounded-lg border border-stone-200">
+          <button
+            onClick={async () => {
+              const next = !publishToWebsite
+              setPublishToWebsite(next)
+              const res = await fetch(`/api/portfolios/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ publish_to_website: next }),
+              })
+              if (res.ok) {
+                showToast(next ? 'Will appear on Rosedale Vatika website' : 'Removed from Rosedale Vatika website', 'success')
+              } else {
+                setPublishToWebsite(!next)
+                showToast('Failed to update', 'error')
+              }
+            }}
+            className="flex-shrink-0"
+            style={{
+              width: 44,
+              height: 24,
+              borderRadius: 12,
+              border: 0,
+              padding: 2,
+              cursor: 'pointer',
+              background: publishToWebsite ? '#059669' : '#d6d3d1',
+              transition: 'background 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                background: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                transition: 'transform 0.2s',
+                transform: publishToWebsite ? 'translateX(20px)' : 'translateX(0)',
+              }}
+            />
+          </button>
+          <div>
+            <div className="text-sm font-medium text-stone-800">Push to Rosedale Vatika website</div>
+            <div className="text-xs text-stone-400">
+              {publishToWebsite ? 'Live on vatika.ai' : 'Not shown on website'}
+            </div>
+          </div>
+        </div>
 
         {/* Cover image selector */}
         <div className="mb-6">

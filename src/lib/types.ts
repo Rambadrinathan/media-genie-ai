@@ -51,6 +51,7 @@ export interface Portfolio {
   cover_image_id: string | null
   created_by: string | null
   published_url: string | null
+  publish_to_website: boolean
   status: 'draft' | 'published' | 'archived'
   created_at: string
   deleted_at: string | null
